@@ -539,39 +539,51 @@ export default function App() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [showMissingOnly, setShowMissingOnly] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [showAddCard, setShowAddCard] = useState(false);
+ const [showAddCard, setShowAddCard] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [lastSavedData, setLastSavedData] = useState(null);
 
-  // Listen for auth state changes
+// Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setAuthLoading(false);
+      if (!user) {
+        setInitialLoadDone(false);
+        setLastSavedData(null);
+      }
     });
     return () => unsubscribe();
   }, []);
 
-  // Load and sync data with Firestore when user logs in
+  // Load data from Firestore when user logs in (one-time load)
   useEffect(() => {
     if (!user) return;
 
-    const userDocRef = doc(db, 'users', user.uid);
-    
-    // Listen for real-time updates
-    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+    const loadData = async () => {
+      const userDocRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
         setCollection(data.collection || {});
         setCustomCards(data.customCards || {});
+        setLastSavedData(JSON.stringify({ collection: data.collection || {}, customCards: data.customCards || {} }));
       }
-    });
+      setInitialLoadDone(true);
+    };
 
-    return () => unsubscribe();
+    loadData();
   }, [user]);
 
-  // Save to Firestore whenever collection or customCards change
+  // Save to Firestore only when data actually changes (after initial load)
   useEffect(() => {
-    if (!user) return;
+    if (!user || !initialLoadDone) return;
+    
+    const currentData = JSON.stringify({ collection, customCards });
+    
+    // Don't save if data hasn't changed
+    if (currentData === lastSavedData) return;
     
     const saveToFirestore = async () => {
       setSyncing(true);
@@ -581,15 +593,17 @@ export default function App() {
           customCards,
           updatedAt: new Date().toISOString()
         }, { merge: true });
+        setLastSavedData(currentData);
       } catch (error) {
         console.error('Error saving to Firestore:', error);
       }
-      setSyncing(false);
+      // Hide syncing indicator after a brief moment
+      setTimeout(() => setSyncing(false), 800);
     };
 
     const timeoutId = setTimeout(saveToFirestore, 500); // Debounce saves
     return () => clearTimeout(timeoutId);
-  }, [collection, customCards, user]);
+  }, [collection, customCards, user, initialLoadDone, lastSavedData]);
 
   const handleLogin = async () => {
     setAuthLoading(true);
