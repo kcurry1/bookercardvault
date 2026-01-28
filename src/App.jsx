@@ -500,10 +500,10 @@ const LoginScreen = ({ onLogin, loading }) => (
     {/* Background Image - Booker positioned higher */}
     <div className="absolute inset-0">
       <img 
-        src="/booker-hero.jpg" 
+        src="/booker-jersey.jpg"
         alt="Devin Booker" 
         className="w-full h-full object-cover"
-        style={{ objectPosition: 'center 20%' }}
+        style={{ objectPosition: 'center 40%' }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
     </div>
