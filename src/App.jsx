@@ -18,28 +18,89 @@ const getRarityColor = (serial) => {
   return 'bg-slate-500';
 };
 
-// Progress Ring Component
-const ProgressRing = ({ progress, size = 56 }) => {
-  const strokeWidth = 5;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (progress / 100) * circumference;
-
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
-        <circle cx={size/2} cy={size/2} r={radius} fill="transparent" stroke="#334155" strokeWidth={strokeWidth} />
-        <circle cx={size/2} cy={size/2} r={radius} fill="transparent" stroke="#f97316" strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-700" />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-white font-bold text-sm">{progress}%</span>
+// Coming Soon Modal Component
+const ComingSoonModal = ({ feature, onClose }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+    <div className="relative w-full max-w-sm bg-slate-800 rounded-2xl border border-slate-700 p-6 text-center">
+      <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+        {feature === 'scan' ? (
+          <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        ) : (
+          <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        )}
       </div>
+      <h3 className="text-white text-xl font-bold mb-2">
+        {feature === 'scan' ? 'Card Scanner' : 'Value Tracker'}
+      </h3>
+      <p className="text-slate-400 text-sm mb-4">
+        {feature === 'scan' 
+          ? 'Snap a photo of any card and let AI automatically identify and add it to your collection.'
+          : 'Track the real-time value of your collection with live market prices from eBay and PSA.'}
+      </p>
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-4">
+        <p className="text-amber-400 text-sm font-medium">🚀 Coming Soon</p>
+        <p className="text-amber-400/70 text-xs mt-1">Premium feature in development</p>
+      </div>
+      <button
+        onClick={onClose}
+        className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-colors"
+      >
+        Got it
+      </button>
     </div>
-  );
-};
+  </div>
+);
 
-// Card Item Component
-const CardItem = ({ card, collected, hasImage, onToggle, onSelect }) => (
+// Card Grid Item Component
+const CardGridItem = ({ card, collected, hasImage, onToggle, onSelect }) => (
+  <div 
+    onClick={() => onSelect(card)}
+    className={`aspect-[3/4] rounded-xl border-2 flex flex-col items-center justify-center p-2 transition-all cursor-pointer ${
+      collected 
+        ? 'bg-slate-800 border-orange-500/50' 
+        : 'bg-slate-800/30 border-slate-700 border-dashed hover:border-slate-600'
+    }`}
+  >
+    {collected ? (
+      <>
+        <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center mb-1">
+          {hasImage ? (
+            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+        <p className="text-white text-xs font-medium text-center leading-tight line-clamp-2">{card.parallel}</p>
+        {card.serial && (
+          <span className="text-orange-400 text-xs mt-0.5">{card.serial}</span>
+        )}
+      </>
+    ) : (
+      <>
+        <div className={`w-10 h-10 rounded-full bg-opacity-20 flex items-center justify-center mb-1 ${getRarityColor(card.serial).replace('bg-', 'bg-')}/20`}>
+          <div className={`w-3 h-3 rounded-full ${getRarityColor(card.serial)}`} />
+        </div>
+        <p className="text-slate-400 text-xs text-center leading-tight line-clamp-2">{card.parallel}</p>
+        {card.serial && (
+          <span className="text-slate-500 text-xs mt-0.5">{card.serial}</span>
+        )}
+      </>
+    )}
+  </div>
+);
+
+// Card List Item Component
+const CardListItem = ({ card, collected, hasImage, onToggle, onSelect }) => (
   <div 
     className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
       collected 
@@ -89,35 +150,44 @@ const CardItem = ({ card, collected, hasImage, onToggle, onSelect }) => (
 );
 
 // Collapsible Section Component
-const CollapsibleSection = ({ title, count, collected, defaultOpen = false, children }) => {
+const CollapsibleSection = ({ title, count, collected, defaultOpen = false, children, viewMode }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const progress = count > 0 ? Math.round((collected / count) * 100) : 0;
   
   return (
     <div className="mb-3">
-      <button onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between p-4 bg-slate-800 hover:bg-slate-750 rounded-xl border border-slate-700 transition-all">
-        <div className="flex items-center gap-3">
-          <svg className={`w-5 h-5 text-orange-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="w-full flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-750 rounded-xl border border-slate-700 transition-all"
+      >
+        <div className="flex items-center gap-2">
+          <svg className={`w-4 h-4 text-orange-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-white font-semibold">{title}</span>
+          <span className="text-white font-semibold text-sm">{title}</span>
+          <span className="text-slate-500 text-xs bg-slate-700 px-2 py-0.5 rounded-full">{collected}/{count}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-orange-400 font-bold">{collected}<span className="text-slate-500 font-normal">/{count}</span></span>
-          <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div className="flex items-center gap-2">
+          <span className="text-orange-400 font-bold text-sm">{progress}%</span>
+          <div className="w-12 h-1.5 bg-slate-700 rounded-full overflow-hidden">
             <div className="h-full bg-orange-500 rounded-full transition-all duration-500" style={{width: `${progress}%`}}/>
           </div>
         </div>
       </button>
-      {isOpen && <div className="mt-2 space-y-2">{children}</div>}
+      {isOpen && (
+        <div className={`mt-2 ${viewMode === 'grid' ? 'grid grid-cols-3 gap-2' : 'space-y-2'}`}>
+          {children}
+        </div>
+      )}
     </div>
   );
 };
 
 // Card Detail Modal Component
-const CardDetailModal = ({ card, collection, onClose, onUpdate }) => {
+const CardDetailModal = ({ card, collection, onClose, onUpdate, onToggle }) => {
   const [notes, setNotes] = useState(collection[card?.id]?.notes || '');
   const [serialNum, setSerialNum] = useState(collection[card?.id]?.serialNumber || '');
+  const isCollected = collection[card?.id]?.collected;
 
   if (!card) return null;
 
@@ -141,7 +211,7 @@ const CardDetailModal = ({ card, collection, onClose, onUpdate }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-md bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-4 flex items-center justify-between z-10">
           <div>
             <h3 className="text-white font-bold text-lg">{card.setName}</h3>
             <p className="text-slate-400 text-sm">{card.parallel} {card.serial && <span className="text-orange-400">{card.serial}</span>}</p>
@@ -154,6 +224,32 @@ const CardDetailModal = ({ card, collection, onClose, onUpdate }) => {
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Collected Toggle */}
+          <button
+            onClick={() => onToggle(card.id)}
+            className={`w-full py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+              isCollected 
+                ? 'bg-orange-500 text-white' 
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            {isCollected ? (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                In Collection
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add to Collection
+              </>
+            )}
+          </button>
+
           <div>
             <label className="block text-slate-300 text-sm font-medium mb-2">
               Card Photo <span className="text-slate-500 font-normal">(optional)</span>
@@ -175,7 +271,7 @@ const CardDetailModal = ({ card, collection, onClose, onUpdate }) => {
                 <svg className="w-8 h-8 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-slate-500 text-sm">Add photo (optional)</span>
+                <span className="text-slate-500 text-sm">Tap to add photo</span>
                 <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
               </label>
             )}
@@ -321,18 +417,11 @@ const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef })
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-md bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 border-b border-slate-700">
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 border-b border-slate-700">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-white font-bold text-lg">Add New Card</h2>
-                <p className="text-slate-400 text-sm">Add a card to your checklist</p>
-              </div>
+            <div>
+              <h2 className="text-white font-bold text-lg">Add New Card</h2>
+              <p className="text-slate-400 text-sm">Add a card to your checklist</p>
             </div>
             <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-700 rounded-lg">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -342,7 +431,7 @@ const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef })
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
             <label className="block text-slate-300 text-sm font-medium mb-2">Product Set</label>
             <div className="flex gap-2 mb-2">
@@ -368,64 +457,34 @@ const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef })
           </div>
 
           <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">
-              Card Set Name <span className="text-slate-500 font-normal">(e.g., Base, Clutch Gene)</span>
-            </label>
-            <input type="text" name="setName" value={formData.setName} onChange={handleChange} placeholder="Base" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors ${errors.setName ? 'border-red-500' : 'border-slate-600'}`} />
+            <label className="block text-slate-300 text-sm font-medium mb-2">Card Set Name</label>
+            <input type="text" name="setName" value={formData.setName} onChange={handleChange} placeholder="e.g., Base, Clutch Gene" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors ${errors.setName ? 'border-red-500' : 'border-slate-600'}`} />
             {errors.setName && <p className="text-red-400 text-xs mt-1">{errors.setName}</p>}
           </div>
 
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">
-              Card Number <span className="text-slate-500 font-normal">(e.g., 124, CG-11)</span>
-            </label>
-            <input type="text" name="cardNumber" value={formData.cardNumber} onChange={handleChange} placeholder="124" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors ${errors.cardNumber ? 'border-red-500' : 'border-slate-600'}`} />
-            {errors.cardNumber && <p className="text-red-400 text-xs mt-1">{errors.cardNumber}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-2">Card Number</label>
+              <input type="text" name="cardNumber" value={formData.cardNumber} onChange={handleChange} placeholder="124" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors ${errors.cardNumber ? 'border-red-500' : 'border-slate-600'}`} />
+              {errors.cardNumber && <p className="text-red-400 text-xs mt-1">{errors.cardNumber}</p>}
+            </div>
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-2">Serial</label>
+              <input type="text" name="serial" value={formData.serial} onChange={handleChange} placeholder="/99" className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors" />
+            </div>
           </div>
 
           <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">
-              Parallel <span className="text-slate-500 font-normal">(e.g., Base, Gold Rainbow)</span>
-            </label>
-            <input type="text" name="parallel" value={formData.parallel} onChange={handleChange} placeholder="Base" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors ${errors.parallel ? 'border-red-500' : 'border-slate-600'}`} />
+            <label className="block text-slate-300 text-sm font-medium mb-2">Parallel</label>
+            <input type="text" name="parallel" value={formData.parallel} onChange={handleChange} placeholder="e.g., Base, Gold Rainbow" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors ${errors.parallel ? 'border-red-500' : 'border-slate-600'}`} />
             {errors.parallel && <p className="text-red-400 text-xs mt-1">{errors.parallel}</p>}
           </div>
-
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">
-              Serial / Numbered <span className="text-slate-500 font-normal">(optional)</span>
-            </label>
-            <input type="text" name="serial" value={formData.serial} onChange={handleChange} placeholder="/99" className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors" />
-          </div>
-
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">
-              Source / Odds <span className="text-slate-500 font-normal">(optional)</span>
-            </label>
-            <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="1:10" className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors" />
-          </div>
-
-          {(formData.setName || formData.cardNumber || formData.parallel) && (
-            <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-600">
-              <p className="text-slate-400 text-xs font-medium mb-2">PREVIEW</p>
-              <div className="flex items-center gap-3">
-                <div className={`w-1 h-12 rounded-full ${getRarityColor(formData.serial)}`} />
-                <div>
-                  <p className="text-white font-semibold">{formData.setName || 'Set Name'} #{formData.cardNumber || '000'}</p>
-                  <p className="text-slate-400 text-sm">{formData.parallel || 'Parallel'}{formData.serial && <span className="text-orange-400 ml-2">{formData.serial}</span>}</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-3 px-4 rounded-xl bg-slate-700 text-slate-300 font-medium hover:bg-slate-600 transition-colors">
               Cancel
             </button>
-            <button type="submit" className="flex-1 py-3 px-4 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors flex items-center justify-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+            <button type="submit" className="flex-1 py-3 px-4 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors">
               Add Card
             </button>
           </div>
@@ -438,74 +497,57 @@ const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef })
 // Login Screen Component
 const LoginScreen = ({ onLogin, loading }) => (
   <div className="min-h-screen bg-black relative overflow-hidden">
-    {/* Background Image with Overlay */}
+    {/* Background Image - Booker positioned higher */}
     <div className="absolute inset-0">
       <img 
         src="/booker-hero.jpg" 
         alt="Devin Booker" 
-        className="w-full h-full object-cover object-center"
+        className="w-full h-full object-cover"
+        style={{ objectPosition: 'center 20%' }}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-900/40 to-orange-900/30" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
     </div>
     
     {/* Content */}
-    <div className="relative z-10 min-h-screen flex flex-col justify-end p-6 pb-12">
-      {/* Logo/Branding at top */}
-      <div className="absolute top-6 left-6">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="9" strokeWidth={2} />
-              <path strokeWidth={1.5} d="M12 3v18M3 12h18M5.5 5.5c3 3 3 10 0 13M18.5 5.5c-3 3-3 10 0 13" />
-            </svg>
-          </div>
-          <span className="text-white font-bold text-lg tracking-tight">MyCardVault</span>
-        </div>
+    <div className="relative z-10 min-h-screen flex flex-col">
+      {/* Logo Text at top - Bold + Tight */}
+      <div className="p-5">
+        <span className="text-white text-xl font-black tracking-tight">MyCardVault</span>
       </div>
       
-      {/* Main Content */}
-      <div className="space-y-6">
-        {/* Title Section */}
-        <div className="space-y-2">
-          <p className="text-orange-400 font-semibold tracking-widest text-sm uppercase">Collection Tracker</p>
-          <h1 className="text-white text-4xl sm:text-5xl font-bold leading-tight">
+      {/* Spacer */}
+      <div className="flex-1" />
+      
+      {/* Bottom content */}
+      <div className="p-5 pb-8 space-y-5">
+        <div>
+          <h1 className="text-white text-4xl font-bold leading-tight">
             Track Your<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Devin Booker</span><br />
             Cards
           </h1>
-          <p className="text-slate-300 text-lg max-w-sm">
-            The ultimate 2025-26 Topps collection tracker. Never lose track of your cards again.
+          <p className="text-slate-400 text-lg mt-3">
+            The ultimate 2025-26 Topps collection tracker
           </p>
         </div>
         
-        {/* Features */}
-        <div className="flex gap-6 text-sm">
-          <div className="flex items-center gap-2 text-slate-300">
-            <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>Cloud Sync</span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-300">
-            <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>223+ Cards</span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-300">
-            <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>Free</span>
-          </div>
+        {/* Features row */}
+        <div className="flex gap-5 text-sm">
+          {['258 Cards', 'All Parallels', 'Free'].map((f, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-slate-300">
+              <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{f}</span>
+            </div>
+          ))}
         </div>
         
         {/* Sign In Button */}
         <button
           onClick={onLogin}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-4 px-6 rounded-2xl transition-all disabled:opacity-50 shadow-2xl shadow-white/10"
+          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-4 px-6 rounded-2xl transition-all disabled:opacity-50 shadow-2xl"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin" />
@@ -519,11 +561,6 @@ const LoginScreen = ({ onLogin, loading }) => (
           )}
           {loading ? 'Signing in...' : 'Continue with Google'}
         </button>
-        
-        {/* Footer */}
-        <p className="text-slate-500 text-xs text-center">
-          By signing in, you agree to sync your collection data securely
-        </p>
       </div>
     </div>
   </div>
@@ -544,8 +581,10 @@ export default function App() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [lastSavedData, setLastSavedData] = useState(null);
   const [saveError, setSaveError] = useState(null);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [activeTab, setActiveTab] = useState('collection');
+  const [showComingSoon, setShowComingSoon] = useState(null);
   
-  // Ref to track pending changes for beforeunload warning
   const pendingChangesRef = useRef(false);
 
   // Listen for auth state changes
@@ -561,7 +600,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Load data from Firestore when user logs in (one-time load)
+  // Load data from Firestore when user logs in
   useEffect(() => {
     if (!user) return;
 
@@ -585,20 +624,17 @@ export default function App() {
     loadData();
   }, [user]);
 
-  // Save to Firestore with proper batching, error handling, and retry logic
+  // Save to Firestore with proper batching and error handling
   useEffect(() => {
     if (!user || !initialLoadDone) return;
     
     const currentData = JSON.stringify({ collection, customCards });
     
-    // Don't save if data hasn't changed
     if (currentData === lastSavedData) return;
     
-    // Mark that we have pending changes
     pendingChangesRef.current = true;
     
     const saveToFirestore = async () => {
-      // Capture current state at save time to avoid stale closures
       const dataToSave = { collection, customCards };
       const dataString = JSON.stringify(dataToSave);
       
@@ -617,7 +653,6 @@ export default function App() {
         console.error('Error saving to Firestore:', error);
         setSaveError('Failed to save. Retrying...');
         
-        // Retry once after 2 seconds
         setTimeout(async () => {
           try {
             await setDoc(doc(db, 'users', user.uid), {
@@ -634,16 +669,14 @@ export default function App() {
         }, 2000);
       }
       
-      // Hide syncing indicator after a brief moment
       setTimeout(() => setSyncing(false), 800);
     };
 
-    // Increased debounce to 1.5s to batch rapid changes (was 500ms)
     const timeoutId = setTimeout(saveToFirestore, 1500);
     return () => clearTimeout(timeoutId);
-  }, [collection, customCards, user, initialLoadDone]); // Removed lastSavedData from deps to prevent loops
+  }, [collection, customCards, user, initialLoadDone]);
 
-  // Warn user before leaving page with unsaved changes
+  // Warn before leaving with unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (pendingChangesRef.current) {
@@ -667,7 +700,6 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    // Warn if there are pending changes
     if (pendingChangesRef.current) {
       const confirmLogout = window.confirm('You have unsaved changes. Are you sure you want to log out?');
       if (!confirmLogout) return;
@@ -758,6 +790,15 @@ export default function App() {
   const updateCard = (cardId, updates) => setCollection(prev => ({ ...prev, [cardId]: { ...prev[cardId], ...updates } }));
   const overallProgress = stats.total > 0 ? Math.round((stats.collected / stats.total) * 100) : 0;
 
+  // Handle bottom tab navigation
+  const handleTabPress = (tab) => {
+    if (tab === 'scan' || tab === 'value') {
+      setShowComingSoon(tab);
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
   // Show loading screen while checking auth
   if (authLoading) {
     return (
@@ -773,111 +814,230 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-slate-900 pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-lg border-b border-slate-800">
-        <div className="px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full" />
-            <div>
-              <h1 className="text-white font-bold text-lg">Devin Booker</h1>
-              <p className="text-slate-400 text-xs">2025-26 Topps Collection</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Save status indicator */}
+      <div className="bg-gradient-to-b from-orange-500/20 to-transparent px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-white text-lg font-black tracking-tight">MyCardVault</span>
+          <div className="flex items-center gap-2">
             {syncing && (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-orange-400 text-xs hidden sm:inline">Saving...</span>
-              </div>
+              <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
             )}
             {saveError && (
-              <div className="flex items-center gap-1 text-red-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <span className="text-xs hidden sm:inline">{saveError}</span>
-              </div>
+              <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
             )}
-            <ProgressRing progress={overallProgress} size={48}/>
-            <button onClick={handleLogout} className="text-slate-400 hover:text-white p-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button onClick={handleLogout} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
           </div>
         </div>
-      </header>
-
-      {/* Stats */}
-      <div className="px-4 py-4 grid grid-cols-3 gap-3">
-        {[
-          { label: 'Total', value: stats.collected, max: stats.total },
-          { label: 'Flagship', value: stats.byCategory.flagship?.collected || 0, max: stats.byCategory.flagship?.total || 0 },
-          { label: 'Chrome', value: stats.byCategory.chrome?.collected || 0, max: stats.byCategory.chrome?.total || 0 }
-        ].map((s, i) => (
-          <div key={i} className="bg-slate-800 rounded-xl p-3 border border-slate-700">
-            <p className="text-slate-400 text-xs font-medium">{s.label}</p>
-            <p className="text-white font-bold text-xl mt-1">{s.value}<span className="text-slate-500 text-sm font-normal">/{s.max}</span></p>
+        
+        {/* Progress card */}
+        <div className="bg-slate-800/80 backdrop-blur rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-white font-bold text-lg">Devin Booker</h2>
+              <p className="text-slate-400 text-sm">2025-26 Topps Collection</p>
+            </div>
+            <div className="text-right">
+              <p className="text-orange-500 font-bold text-2xl">{stats.collected}</p>
+              <p className="text-slate-500 text-xs">of {stats.total}</p>
+            </div>
           </div>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="px-4 pb-4">
-        <div className="relative">
-          <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input type="text" placeholder="Search cards..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-12 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"/>
+          
+          {/* Progress bar */}
+          <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden mb-3">
+            <div 
+              className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500" 
+              style={{ width: `${overallProgress}%` }} 
+            />
+          </div>
+          
+          {/* Category breakdown with percentages */}
+          <div className="flex gap-4">
+            {[
+              { key: 'flagship', label: 'Flagship', color: 'bg-orange-500' },
+              { key: 'chrome', label: 'Chrome', color: 'bg-blue-500' },
+              { key: 'holiday', label: 'Holiday', color: 'bg-green-500' }
+            ].map((cat) => {
+              const catStats = stats.byCategory[cat.key] || { total: 0, collected: 0 };
+              const pct = catStats.total > 0 ? Math.round((catStats.collected / catStats.total) * 100) : 0;
+              return (
+                <div key={cat.key} className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${cat.color}`} />
+                  <span className="text-slate-400 text-xs">{cat.label} {pct}%</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="px-4 pb-4 flex gap-2 overflow-x-auto">
+      {/* Search + View Toggle */}
+      <div className="px-4 py-3 flex gap-2">
+        <div className="flex-1 relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input 
+            type="text" 
+            placeholder="Search parallels..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+          />
+        </div>
+        <div className="flex bg-slate-800 rounded-xl p-1 border border-slate-700">
+          <button 
+            onClick={() => setViewMode('list')}
+            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <button 
+            onClick={() => setViewMode('grid')}
+            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="px-4 pb-3 flex gap-2 overflow-x-auto">
         {[
-          { k: 'all', l: 'All' },
-          { k: 'flagship', l: 'Flagship' },
-          { k: 'chrome', l: 'Chrome' },
-          { k: 'holiday', l: 'Holiday' }
-        ].map(f => (
-          <button key={f.k} onClick={() => setActiveFilter(f.k)} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${activeFilter === f.k ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
-            {f.l}
+          { key: 'all', label: 'All Sets' },
+          { key: 'flagship', label: 'Flagship' },
+          { key: 'chrome', label: 'Chrome' },
+          { key: 'holiday', label: 'Holiday' }
+        ].map((f) => (
+          <button 
+            key={f.key}
+            onClick={() => { setActiveFilter(f.key); setShowMissingOnly(false); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+              activeFilter === f.key && !showMissingOnly
+                ? 'bg-orange-500 text-white' 
+                : 'bg-slate-800 text-slate-400 border border-slate-700'
+            }`}
+          >
+            {f.label}
           </button>
         ))}
-        <button onClick={() => setShowMissingOnly(!showMissingOnly)} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${showMissingOnly ? 'bg-purple-500 text-white' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
-          Missing Only
+        <button 
+          onClick={() => setShowMissingOnly(!showMissingOnly)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+            showMissingOnly
+              ? 'bg-purple-500 text-white' 
+              : 'bg-slate-800 text-slate-400 border border-slate-700'
+          }`}
+        >
+          Missing
         </button>
       </div>
 
       {/* Card List */}
-      <div className="px-4 pb-24">
+      <div className="px-4 pb-4">
         {Object.entries(filteredSets).map(([setKey, set]) => (
-          <CollapsibleSection key={setKey} title={set.name} count={set.cards.length} collected={set.cards.filter(c => collection[c.id]?.collected).length} defaultOpen={setKey === 'flagship-base'}>
+          <CollapsibleSection 
+            key={setKey} 
+            title={set.name} 
+            count={set.cards.length} 
+            collected={set.cards.filter(c => collection[c.id]?.collected).length} 
+            defaultOpen={setKey === 'flagship-base'}
+            viewMode={viewMode}
+          >
             {set.cards.map(card => (
-              <CardItem 
-                key={card.id} 
-                card={card} 
-                collected={collection[card.id]?.collected} 
-                hasImage={!!collection[card.id]?.image}
-                onToggle={toggleCollected}
-                onSelect={setSelectedCard}
-              />
+              viewMode === 'grid' ? (
+                <CardGridItem 
+                  key={card.id} 
+                  card={card} 
+                  collected={collection[card.id]?.collected} 
+                  hasImage={!!collection[card.id]?.image}
+                  onToggle={toggleCollected}
+                  onSelect={setSelectedCard}
+                />
+              ) : (
+                <CardListItem 
+                  key={card.id} 
+                  card={card} 
+                  collected={collection[card.id]?.collected} 
+                  hasImage={!!collection[card.id]?.image}
+                  onToggle={toggleCollected}
+                  onSelect={setSelectedCard}
+                />
+              )
             ))}
           </CollapsibleSection>
         ))}
       </div>
 
-      {/* Floating Action Button */}
+      {/* FAB for adding cards */}
       <button
         onClick={() => setShowAddCard(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg shadow-orange-500/30 flex items-center justify-center transition-all hover:scale-110 z-30"
+        className="fixed bottom-24 right-4 w-14 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg shadow-orange-500/30 flex items-center justify-center transition-all hover:scale-105 z-20"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       </button>
+
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-2 py-2 z-30">
+        <div className="flex justify-around max-w-md mx-auto">
+          {[
+            { id: 'collection', icon: 'cards', label: 'Cards' },
+            { id: 'scan', icon: 'scan', label: 'Scan', premium: true },
+            { id: 'value', icon: 'value', label: 'Value', premium: true },
+            { id: 'profile', icon: 'profile', label: 'Profile' }
+          ].map((tab) => (
+            <button 
+              key={tab.id}
+              onClick={() => handleTabPress(tab.id)}
+              className={`flex flex-col items-center py-1.5 px-4 rounded-xl transition-all ${
+                activeTab === tab.id 
+                  ? 'text-orange-500 bg-orange-500/10' 
+                  : 'text-slate-500'
+              }`}
+            >
+              <div className="relative">
+                {tab.icon === 'cards' && (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                )}
+                {tab.icon === 'scan' && (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                )}
+                {tab.icon === 'value' && (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {tab.icon === 'profile' && (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
+                {tab.premium && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full" />
+                )}
+              </div>
+              <span className="text-xs mt-0.5">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Card Detail Modal */}
       {selectedCard && (
@@ -886,6 +1046,7 @@ export default function App() {
           collection={collection} 
           onClose={() => setSelectedCard(null)} 
           onUpdate={updateCard}
+          onToggle={toggleCollected}
         />
       )}
 
@@ -897,6 +1058,14 @@ export default function App() {
         existingSets={Object.keys(mergedCardData.sets)}
         cardDataRef={mergedCardData}
       />
+
+      {/* Coming Soon Modal */}
+      {showComingSoon && (
+        <ComingSoonModal 
+          feature={showComingSoon} 
+          onClose={() => setShowComingSoon(null)} 
+        />
+      )}
     </div>
   );
 }
