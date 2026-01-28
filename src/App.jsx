@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import cardData from './data/bookerCards.json';
 
 // Get rarity color based on serial number
@@ -539,12 +539,16 @@ export default function App() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [showMissingOnly, setShowMissingOnly] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
- const [showAddCard, setShowAddCard] = useState(false);
+  const [showAddCard, setShowAddCard] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [lastSavedData, setLastSavedData] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+  
+  // Ref to track pending changes for beforeunload warning
+  const pendingChangesRef = useRef(false);
 
-// Listen for auth state changes
+  // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
@@ -562,13 +566,18 @@ export default function App() {
     if (!user) return;
 
     const loadData = async () => {
-      const userDocRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userDocRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setCollection(data.collection || {});
-        setCustomCards(data.customCards || {});
-        setLastSavedData(JSON.stringify({ collection: data.collection || {}, customCards: data.customCards || {} }));
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setCollection(data.collection || {});
+          setCustomCards(data.customCards || {});
+          setLastSavedData(JSON.stringify({ collection: data.collection || {}, customCards: data.customCards || {} }));
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setSaveError('Failed to load your collection. Please refresh.');
       }
       setInitialLoadDone(true);
     };
@@ -576,7 +585,7 @@ export default function App() {
     loadData();
   }, [user]);
 
-  // Save to Firestore only when data actually changes (after initial load)
+  // Save to Firestore with proper batching, error handling, and retry logic
   useEffect(() => {
     if (!user || !initialLoadDone) return;
     
@@ -585,25 +594,67 @@ export default function App() {
     // Don't save if data hasn't changed
     if (currentData === lastSavedData) return;
     
+    // Mark that we have pending changes
+    pendingChangesRef.current = true;
+    
     const saveToFirestore = async () => {
+      // Capture current state at save time to avoid stale closures
+      const dataToSave = { collection, customCards };
+      const dataString = JSON.stringify(dataToSave);
+      
       setSyncing(true);
+      setSaveError(null);
+      
       try {
         await setDoc(doc(db, 'users', user.uid), {
-          collection,
-          customCards,
+          ...dataToSave,
           updatedAt: new Date().toISOString()
         }, { merge: true });
-        setLastSavedData(currentData);
+        
+        setLastSavedData(dataString);
+        pendingChangesRef.current = false;
       } catch (error) {
         console.error('Error saving to Firestore:', error);
+        setSaveError('Failed to save. Retrying...');
+        
+        // Retry once after 2 seconds
+        setTimeout(async () => {
+          try {
+            await setDoc(doc(db, 'users', user.uid), {
+              ...dataToSave,
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
+            setLastSavedData(dataString);
+            pendingChangesRef.current = false;
+            setSaveError(null);
+          } catch (retryError) {
+            console.error('Retry failed:', retryError);
+            setSaveError('Save failed. Check connection.');
+          }
+        }, 2000);
       }
+      
       // Hide syncing indicator after a brief moment
       setTimeout(() => setSyncing(false), 800);
     };
 
-    const timeoutId = setTimeout(saveToFirestore, 500); // Debounce saves
+    // Increased debounce to 1.5s to batch rapid changes (was 500ms)
+    const timeoutId = setTimeout(saveToFirestore, 1500);
     return () => clearTimeout(timeoutId);
-  }, [collection, customCards, user, initialLoadDone, lastSavedData]);
+  }, [collection, customCards, user, initialLoadDone]); // Removed lastSavedData from deps to prevent loops
+
+  // Warn user before leaving page with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (pendingChangesRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   const handleLogin = async () => {
     setAuthLoading(true);
@@ -616,6 +667,12 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    // Warn if there are pending changes
+    if (pendingChangesRef.current) {
+      const confirmLogout = window.confirm('You have unsaved changes. Are you sure you want to log out?');
+      if (!confirmLogout) return;
+    }
+    
     try {
       await signOut(auth);
       setCollection({});
@@ -728,8 +785,20 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Save status indicator */}
             {syncing && (
-              <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-orange-400 text-xs hidden sm:inline">Saving...</span>
+              </div>
+            )}
+            {saveError && (
+              <div className="flex items-center gap-1 text-red-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-xs hidden sm:inline">{saveError}</span>
+              </div>
             )}
             <ProgressRing progress={overallProgress} size={48}/>
             <button onClick={handleLogout} className="text-slate-400 hover:text-white p-2">
