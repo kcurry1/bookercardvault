@@ -403,6 +403,171 @@ const EditCollectionModal = ({ collection, onClose, onSave }) => {
   );
 };
 
+// Add Card Modal Component
+const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef }) => {
+  const [formData, setFormData] = useState({
+    setKey: '',
+    newSetName: '',
+    setName: '',
+    cardNumber: '',
+    parallel: '',
+    serial: '',
+    source: ''
+  });
+  const [isNewSet, setIsNewSet] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ setKey: '', newSetName: '', setName: '', cardNumber: '', parallel: '', serial: '', source: '' });
+      setIsNewSet(false);
+      setErrors({});
+    }
+  }, [isOpen]);
+
+  const generateId = (setKey) => {
+    const prefix = setKey.substring(0, 2).toLowerCase();
+    const existingCards = cardDataRef?.sets?.[setKey]?.cards || [];
+    const maxNum = existingCards.reduce((max, card) => {
+      const match = card.id.match(/-(\d+)$/);
+      return match ? Math.max(max, parseInt(match[1])) : max;
+    }, 0);
+    return `custom-${Date.now()}`;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!isNewSet && !formData.setKey) newErrors.setKey = 'Please select a set';
+    if (isNewSet && !formData.newSetName.trim()) newErrors.newSetName = 'Set name is required';
+    if (!formData.setName.trim()) newErrors.setName = 'Card set name is required';
+    if (!formData.cardNumber.trim()) newErrors.cardNumber = 'Card number is required';
+    if (!formData.parallel.trim()) newErrors.parallel = 'Parallel is required';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const determineCategory = (setName) => {
+    const lower = setName.toLowerCase();
+    if (lower.includes('chrome')) return 'chrome';
+    if (lower.includes('holiday')) return 'holiday';
+    return 'flagship';
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    const targetSetKey = isNewSet 
+      ? formData.newSetName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      : formData.setKey;
+
+    const newCard = {
+      id: generateId(targetSetKey),
+      setName: formData.setName.trim(),
+      cardNumber: formData.cardNumber.trim(),
+      parallel: formData.parallel.trim(),
+      serial: formData.serial.trim(),
+      source: formData.source.trim()
+    };
+
+    const result = isNewSet 
+      ? { card: newCard, isNewSet: true, setKey: targetSetKey, setMetadata: { name: formData.newSetName.trim(), category: determineCategory(formData.newSetName), cardNumber: formData.cardNumber.trim(), cards: [newCard] } }
+      : { card: newCard, isNewSet: false, setKey: targetSetKey };
+
+    onAddCard(result);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 border-b border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-white font-bold text-lg">Add New Card</h2>
+              <p className="text-slate-400 text-sm">Add a card to your checklist</p>
+            </div>
+            <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-700 rounded-lg">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div>
+            <label className="block text-slate-300 text-sm font-medium mb-2">Product Set</label>
+            <div className="flex gap-2 mb-2">
+              <button type="button" onClick={() => setIsNewSet(false)} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${!isNewSet ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                Existing Set
+              </button>
+              <button type="button" onClick={() => setIsNewSet(true)} className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${isNewSet ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                New Set
+              </button>
+            </div>
+            
+            {!isNewSet ? (
+              <select name="setKey" value={formData.setKey} onChange={handleChange} className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 ${errors.setKey ? 'border-red-500' : 'border-slate-600'}`}>
+                <option value="">Select a set...</option>
+                {existingSets.map(key => (
+                  <option key={key} value={key}>{cardDataRef?.sets?.[key]?.name || key}</option>
+                ))}
+              </select>
+            ) : (
+              <input type="text" name="newSetName" value={formData.newSetName} onChange={handleChange} placeholder="e.g., Chrome - New Insert" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 ${errors.newSetName ? 'border-red-500' : 'border-slate-600'}`} />
+            )}
+            {(errors.setKey || errors.newSetName) && <p className="text-red-400 text-xs mt-1">{errors.setKey || errors.newSetName}</p>}
+          </div>
+
+          <div>
+            <label className="block text-slate-300 text-sm font-medium mb-2">Card Set Name</label>
+            <input type="text" name="setName" value={formData.setName} onChange={handleChange} placeholder="e.g., Base, Clutch Gene" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 ${errors.setName ? 'border-red-500' : 'border-slate-600'}`} />
+            {errors.setName && <p className="text-red-400 text-xs mt-1">{errors.setName}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-2">Card Number</label>
+              <input type="text" name="cardNumber" value={formData.cardNumber} onChange={handleChange} placeholder="124" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 ${errors.cardNumber ? 'border-red-500' : 'border-slate-600'}`} />
+              {errors.cardNumber && <p className="text-red-400 text-xs mt-1">{errors.cardNumber}</p>}
+            </div>
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-2">Serial</label>
+              <input type="text" name="serial" value={formData.serial} onChange={handleChange} placeholder="/99" className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-slate-300 text-sm font-medium mb-2">Parallel</label>
+            <input type="text" name="parallel" value={formData.parallel} onChange={handleChange} placeholder="e.g., Base, Gold Rainbow" className={`w-full bg-slate-700 border rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 ${errors.parallel ? 'border-red-500' : 'border-slate-600'}`} />
+            {errors.parallel && <p className="text-red-400 text-xs mt-1">{errors.parallel}</p>}
+          </div>
+
+          <div>
+            <label className="block text-slate-300 text-sm font-medium mb-2">Source (optional)</label>
+            <input type="text" name="source" value={formData.source} onChange={handleChange} placeholder="e.g., Hobby exclusive, Retail" className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-3 px-4 rounded-xl bg-slate-700 text-slate-300 font-medium hover:bg-slate-600">Cancel</button>
+            <button type="submit" className="flex-1 py-3 px-4 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600">Add Card</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // Delete Confirmation Modal
 const DeleteConfirmModal = ({ title, message, onClose, onConfirm }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -517,6 +682,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('collection');
   const [showComingSoon, setShowComingSoon] = useState(null);
   const [showFilterSort, setShowFilterSort] = useState(false);
+  const [showAddCard, setShowAddCard] = useState(false);
   const [sortBy, setSortBy] = useState('rarity');
   const [editingCard, setEditingCard] = useState(null);
   const [editingCollection, setEditingCollection] = useState(null);
@@ -657,6 +823,27 @@ export default function App() {
     setDeleteConfirm(null);
   };
 
+  const handleAddCard = (result) => {
+    if (result.isNewSet) {
+      setCustomCards(prev => ({
+        ...prev,
+        [result.setKey]: result.setMetadata
+      }));
+    } else {
+      setCustomCards(prev => ({
+        ...prev,
+        [result.setKey]: {
+          ...prev[result.setKey],
+          ...(mergedCardData.sets[result.setKey] || {}),
+          cards: [
+            ...(prev[result.setKey]?.cards || mergedCardData.sets[result.setKey]?.cards || []),
+            result.card
+          ]
+        }
+      }));
+    }
+  };
+
   const allCards = useMemo(() => {
     const cards = [];
     Object.entries(mergedCardData.sets).forEach(([setKey, set]) => {
@@ -781,6 +968,16 @@ export default function App() {
         ))}
       </div>
 
+      {/* FAB for adding cards */}
+      <button
+        onClick={() => setShowAddCard(true)}
+        className="fixed bottom-24 right-4 w-14 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg shadow-orange-500/30 flex items-center justify-center transition-all hover:scale-105 z-20"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-2 py-2 z-30">
         <div className="flex justify-around max-w-md mx-auto">
@@ -810,6 +1007,7 @@ export default function App() {
       {editingCard && <EditCardModal card={editingCard} onClose={() => setEditingCard(null)} onSave={handleSaveCard} isNew={editingCard.isNew} />}
       {editingCollection && <EditCollectionModal collection={editingCollection} onClose={() => setEditingCollection(null)} onSave={handleSaveCollection} />}
       {deleteConfirm && <DeleteConfirmModal title={deleteConfirm.title} message={deleteConfirm.message} onClose={() => setDeleteConfirm(null)} onConfirm={deleteConfirm.type === 'card' ? confirmDeleteCard : confirmDeleteCollection} />}
+      <AddCardModal isOpen={showAddCard} onClose={() => setShowAddCard(false)} onAddCard={handleAddCard} existingSets={Object.keys(mergedCardData.sets)} cardDataRef={mergedCardData} />
       <FilterSortModal isOpen={showFilterSort} onClose={() => setShowFilterSort(false)} sortBy={sortBy} onSortChange={setSortBy} showCollectedOnly={showCollectedOnly} onCollectedFilterChange={setShowCollectedOnly} showMissingOnly={showMissingOnly} onMissingFilterChange={setShowMissingOnly} />
       {showComingSoon && <ComingSoonModal feature={showComingSoon} onClose={() => setShowComingSoon(null)} />}
     </div>
