@@ -1642,14 +1642,14 @@
         }
       ]
     },
-    "chrome-chrome-greats": {
-      "name": "Chrome - Chrome Greats",
+    "chrome-clutch-gene": {
+      "name": "Chrome - Clutch Gene",
       "cardNumber": "CG-11",
       "category": "chrome",
       "cards": [
         {
           "id": "card-192",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Base",
           "serial": "",
@@ -1657,7 +1657,7 @@
         },
         {
           "id": "card-193",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Refractor",
           "serial": "",
@@ -1665,7 +1665,7 @@
         },
         {
           "id": "card-194",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Magenta Refractor",
           "serial": "",
@@ -1673,7 +1673,7 @@
         },
         {
           "id": "card-195",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Teal Refractor",
           "serial": "",
@@ -1681,7 +1681,7 @@
         },
         {
           "id": "card-196",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Yellow Refractor",
           "serial": "",
@@ -1689,7 +1689,7 @@
         },
         {
           "id": "card-197",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Aqua Refractor",
           "serial": "",
@@ -1697,7 +1697,7 @@
         },
         {
           "id": "card-198",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Blue Refractor",
           "serial": "/150",
@@ -1705,7 +1705,7 @@
         },
         {
           "id": "card-199",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Green Refractor",
           "serial": "/99",
@@ -1713,7 +1713,7 @@
         },
         {
           "id": "card-200",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Purple Refractor",
           "serial": "/75",
@@ -1721,7 +1721,7 @@
         },
         {
           "id": "card-201",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Gold Refractor",
           "serial": "/50",
@@ -1729,7 +1729,7 @@
         },
         {
           "id": "card-202",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Orange Refractor",
           "serial": "/25",
@@ -1737,7 +1737,7 @@
         },
         {
           "id": "card-203",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Black Refractor",
           "serial": "/10",
@@ -1745,7 +1745,7 @@
         },
         {
           "id": "card-204",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Red Refractor",
           "serial": "/5",
@@ -1753,7 +1753,7 @@
         },
         {
           "id": "card-205",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "SuperFractor",
           "serial": "1/1",
@@ -1761,7 +1761,7 @@
         },
         {
           "id": "card-206",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "RayWave Refractor",
           "serial": "",
@@ -1769,7 +1769,7 @@
         },
         {
           "id": "card-207",
-          "setName": "Chrome Greats",
+          "setName": "Clutch Gene",
           "cardNumber": "CG-11",
           "parallel": "Pulsar Refractor",
           "serial": "",
