@@ -69,8 +69,8 @@ const ComingSoonModal = ({ feature, onClose }) => (
   </div>
 );
 
-// Card List Item with iOS-style Swipe-to-Delete
-const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete, onDuplicate }) => {
+// Card List Item with Swipe-to-Delete and Drag Handle
+const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete, onDuplicate, isDragging, onDragStart, onDragEnd, onDragOver, dragIndex }) => {
   const [swipeX, setSwipeX] = useState(0);
   const [startX, setStartX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -80,6 +80,8 @@ const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete,
   const DELETE_THRESHOLD = -75;
 
   const handleTouchStart = (e) => {
+    // Don't start swipe if dragging
+    if (e.target.closest('.drag-handle')) return;
     setStartX(e.touches[0].clientX);
     setIsSwiping(true);
   };
@@ -101,9 +103,8 @@ const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete,
     }
   };
 
-  // Mouse support for desktop testing
   const handleMouseDown = (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || e.target.closest('.drag-handle')) return;
     setStartX(e.clientX);
     setIsSwiping(true);
   };
@@ -137,8 +138,15 @@ const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete,
   }
 
   return (
-    <div className="relative overflow-hidden rounded-xl" ref={containerRef}>
-      {/* Delete background - red with trash icon */}
+    <div 
+      className={`relative overflow-hidden rounded-xl ${isDragging ? 'opacity-50 scale-95' : ''}`} 
+      ref={containerRef}
+      draggable
+      onDragStart={(e) => onDragStart && onDragStart(e, dragIndex)}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => onDragOver && onDragOver(e, dragIndex)}
+    >
+      {/* Delete background */}
       <div className="absolute inset-y-0 right-0 w-24 bg-red-500 flex items-center justify-end pr-4 rounded-r-xl">
         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -147,7 +155,7 @@ const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete,
       
       {/* Swipeable card content */}
       <div 
-        className={`relative flex items-center gap-3 p-3 border ${collected ? 'bg-slate-800 border-slate-600' : 'bg-slate-800 border-slate-700'} rounded-xl cursor-grab active:cursor-grabbing`}
+        className={`relative flex items-center gap-2 p-3 border ${collected ? 'bg-slate-800 border-slate-600' : 'bg-slate-800 border-slate-700'} rounded-xl`}
         style={{ 
           transform: `translateX(${swipeX}px)`, 
           transition: isSwiping ? 'none' : 'transform 0.2s ease-out'
@@ -160,11 +168,18 @@ const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete,
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Color bar - matches rarity when collected */}
+        {/* Drag handle */}
+        <div className="drag-handle cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 touch-none">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </div>
+
+        {/* Color bar */}
         <div className={`w-1.5 h-14 rounded-full ${collected ? rarityColor : 'bg-slate-600'} ${collected ? 'opacity-100' : 'opacity-40'}`} />
         
         <div 
-          className="flex-1 min-w-0" 
+          className="flex-1 min-w-0 cursor-pointer" 
           onClick={() => { if (swipeX === 0 && !isSwiping) onSelect(card); }}
         >
           <div className="flex items-center gap-2">
@@ -182,7 +197,7 @@ const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete,
           </p>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {hasImage && (
             <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
               <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -221,15 +236,42 @@ const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete,
   );
 };
 
-// Collection Section with Swipe-to-Delete
-const CollectionSection = ({ setKey, title, cardNumber, count, collected, cards, collection, onToggle, onSelect, onDelete, onDuplicate, onDeleteCollection, sortBy }) => {
+// Collection Section with Swipe-to-Delete and Drag-Drop Reordering
+const CollectionSection = ({ setKey, title, cardNumber, count, collected, cards, collection, onToggle, onSelect, onDelete, onDuplicate, onDeleteCollection, onReorderCards, sortBy, customOrder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [swipeX, setSwipeX] = useState(0);
   const [startX, setStartX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [localCards, setLocalCards] = useState([]);
   const progress = count > 0 ? Math.round((collected / count) * 100) : 0;
   const DELETE_THRESHOLD = -75;
+
+  // Apply sorting or custom order
+  useEffect(() => {
+    let sorted = [...cards];
+    if (customOrder && customOrder.length > 0) {
+      // Use custom order if available
+      const orderMap = {};
+      customOrder.forEach((id, idx) => orderMap[id] = idx);
+      sorted.sort((a, b) => {
+        const aIdx = orderMap[a.id] !== undefined ? orderMap[a.id] : 9999;
+        const bIdx = orderMap[b.id] !== undefined ? orderMap[b.id] : 9999;
+        return aIdx - bIdx;
+      });
+    } else {
+      // Use sort setting
+      switch (sortBy) {
+        case 'rarity': sorted = sortCardsByRarity(sorted); break;
+        case 'collected': sorted = sorted.sort((a, b) => (collection[b.id]?.collected ? 1 : 0) - (collection[a.id]?.collected ? 1 : 0)); break;
+        case 'missing': sorted = sorted.sort((a, b) => (collection[a.id]?.collected ? 1 : 0) - (collection[b.id]?.collected ? 1 : 0)); break;
+        case 'alpha': sorted = sorted.sort((a, b) => a.parallel.localeCompare(b.parallel)); break;
+        default: sorted = sortCardsByRarity(sorted);
+      }
+    }
+    setLocalCards(sorted);
+  }, [cards, sortBy, collection, customOrder]);
 
   const handleTouchStart = (e) => {
     setStartX(e.touches[0].clientX);
@@ -282,16 +324,33 @@ const CollectionSection = ({ setKey, title, cardNumber, count, collected, cards,
     }
   };
 
-  const sortedCards = useMemo(() => {
-    let sorted = [...cards];
-    switch (sortBy) {
-      case 'rarity': return sortCardsByRarity(sorted);
-      case 'collected': return sorted.sort((a, b) => (collection[b.id]?.collected ? 1 : 0) - (collection[a.id]?.collected ? 1 : 0));
-      case 'missing': return sorted.sort((a, b) => (collection[a.id]?.collected ? 1 : 0) - (collection[b.id]?.collected ? 1 : 0));
-      case 'alpha': return sorted.sort((a, b) => a.parallel.localeCompare(b.parallel));
-      default: return sortCardsByRarity(sorted);
-    }
-  }, [cards, sortBy, collection]);
+  // Drag and drop handlers
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    
+    // Reorder locally
+    const newCards = [...localCards];
+    const draggedCard = newCards[draggedIndex];
+    newCards.splice(draggedIndex, 1);
+    newCards.splice(index, 0, draggedCard);
+    setLocalCards(newCards);
+    setDraggedIndex(index);
+    
+    // Save new order
+    const newOrder = newCards.map(c => c.id);
+    onReorderCards(setKey, newOrder);
+  };
 
   if (isDeleting) {
     return <div className="h-0 overflow-hidden transition-all duration-200 ease-out opacity-0 mb-3" />;
@@ -346,7 +405,7 @@ const CollectionSection = ({ setKey, title, cardNumber, count, collected, cards,
       
       {isOpen && (
         <div className="mt-2 space-y-2">
-          {sortedCards.map(card => (
+          {localCards.map((card, index) => (
             <CardListItem 
               key={card.id} 
               card={card} 
@@ -356,6 +415,11 @@ const CollectionSection = ({ setKey, title, cardNumber, count, collected, cards,
               onSelect={onSelect}
               onDelete={onDelete}
               onDuplicate={onDuplicate}
+              isDragging={draggedIndex === index}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              dragIndex={index}
             />
           ))}
         </div>
@@ -364,11 +428,30 @@ const CollectionSection = ({ setKey, title, cardNumber, count, collected, cards,
   );
 };
 
-// Card Detail Modal
-const CardDetailModal = ({ card, collection, onClose, onUpdate, onToggle }) => {
+// Card Detail Modal - Now with Edit Functionality for all fields
+const CardDetailModal = ({ card, collection, onClose, onUpdate, onToggle, onEditCard }) => {
+  const [isEditing, setIsEditing] = useState(false);
   const [notes, setNotes] = useState(collection[card?.id]?.notes || '');
   const [serialNum, setSerialNum] = useState(collection[card?.id]?.serialNumber || '');
+  
+  // Editable card fields
+  const [editSetName, setEditSetName] = useState(card?.setName || '');
+  const [editCardNumber, setEditCardNumber] = useState(card?.cardNumber || '');
+  const [editParallel, setEditParallel] = useState(card?.parallel || '');
+  const [editSerial, setEditSerial] = useState(card?.serial || '');
+  const [editSource, setEditSource] = useState(card?.source || '');
+  
   const isCollected = collection[card?.id]?.collected;
+
+  useEffect(() => {
+    if (card) {
+      setEditSetName(card.setName || '');
+      setEditCardNumber(card.cardNumber || '');
+      setEditParallel(card.parallel || '');
+      setEditSerial(card.serial || '');
+      setEditSource(card.source || '');
+    }
+  }, [card]);
 
   if (!card) return null;
 
@@ -381,60 +464,239 @@ const CardDetailModal = ({ card, collection, onClose, onUpdate, onToggle }) => {
     }
   };
 
+  const handleSaveEdits = () => {
+    // Save card detail edits (setName, cardNumber, parallel, serial, source)
+    onEditCard({
+      ...card,
+      setName: editSetName,
+      cardNumber: editCardNumber,
+      parallel: editParallel,
+      serial: editSerial,
+      source: editSource
+    });
+    setIsEditing(false);
+  };
+
+  const handleSaveNotes = () => {
+    onUpdate(card.id, { notes, serialNumber: serialNum });
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-md bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden max-h-[90vh] overflow-y-auto">
+        {/* Header */}
         <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-4 flex items-center justify-between z-10">
-          <div>
-            <h3 className="text-white font-bold text-lg">{card.setName}</h3>
-            <p className="text-slate-400 text-sm">{card.parallel} {card.serial && <span className={getRarityTextColor(card.serial)}>{card.serial}</span>}</p>
+          <div className="flex-1">
+            {isEditing ? (
+              <p className="text-orange-400 text-sm font-medium">Editing Card Details</p>
+            ) : (
+              <>
+                <h3 className="text-white font-bold text-lg">{card.setName}</h3>
+                <p className="text-slate-400 text-sm">{card.parallel} {card.serial && <span className={getRarityTextColor(card.serial)}>{card.serial}</span>}</p>
+              </>
+            )}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-2">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {!isEditing && (
+              <button 
+                onClick={() => setIsEditing(true)} 
+                className="text-orange-400 hover:text-orange-300 p-2 hover:bg-slate-700 rounded-lg"
+                title="Edit card details"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            )}
+            <button onClick={onClose} className="text-slate-400 hover:text-white p-2">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="p-4 space-y-4">
-          <button onClick={() => onToggle(card.id)} className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 ${isCollected ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
-            {isCollected ? (
-              <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>In Collection</>
-            ) : (
-              <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>Add to Collection</>
-            )}
-          </button>
+          {isEditing ? (
+            /* Edit Mode */
+            <>
+              <div className="bg-slate-700/50 rounded-xl p-4 space-y-4">
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Set Name</label>
+                  <input 
+                    type="text" 
+                    value={editSetName} 
+                    onChange={(e) => setEditSetName(e.target.value)} 
+                    className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500" 
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">Card Number</label>
+                    <input 
+                      type="text" 
+                      value={editCardNumber} 
+                      onChange={(e) => setEditCardNumber(e.target.value)} 
+                      className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">Serial</label>
+                    <input 
+                      type="text" 
+                      value={editSerial} 
+                      onChange={(e) => setEditSerial(e.target.value)} 
+                      placeholder="/99"
+                      className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" 
+                    />
+                  </div>
+                </div>
 
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">Card Photo</label>
-            {collection[card.id]?.image ? (
-              <div className="relative">
-                <img src={collection[card.id].image} alt={card.setName} className="w-full rounded-xl" />
-                <button onClick={() => onUpdate(card.id, { image: null })} className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white p-1.5 rounded-lg">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Parallel</label>
+                  <input 
+                    type="text" 
+                    value={editParallel} 
+                    onChange={(e) => setEditParallel(e.target.value)} 
+                    className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Source</label>
+                  <input 
+                    type="text" 
+                    value={editSource} 
+                    onChange={(e) => setEditSource(e.target.value)} 
+                    placeholder="e.g., Hobby exclusive"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" 
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setIsEditing(false)} 
+                  className="flex-1 py-3 bg-slate-700 text-slate-300 font-medium rounded-xl hover:bg-slate-600"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSaveEdits} 
+                  className="flex-1 py-3 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600"
+                >
+                  Save Changes
                 </button>
               </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-500">
-                <svg className="w-8 h-8 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                <span className="text-slate-500 text-sm">Tap to add photo</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-              </label>
-            )}
-          </div>
+            </>
+          ) : (
+            /* View Mode */
+            <>
+              {/* Collection toggle */}
+              <button 
+                onClick={() => onToggle(card.id)} 
+                className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 ${isCollected ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+              >
+                {isCollected ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    In Collection
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add to Collection
+                  </>
+                )}
+              </button>
 
-          {card.serial && (
-            <div>
-              <label className="block text-slate-300 text-sm font-medium mb-2">Your Serial Number</label>
-              <input type="text" value={serialNum} onChange={(e) => setSerialNum(e.target.value)} placeholder={`e.g., 42${card.serial}`} className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
-            </div>
+              {/* Card info summary */}
+              <div className="bg-slate-700/50 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">Card Number</span>
+                  <span className="text-white">#{card.cardNumber}</span>
+                </div>
+                {card.serial && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Serial</span>
+                    <span className={getRarityTextColor(card.serial)}>{card.serial}</span>
+                  </div>
+                )}
+                {card.source && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Source</span>
+                    <span className="text-white">{card.source}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Photo upload */}
+              <div>
+                <label className="block text-slate-300 text-sm font-medium mb-2">Card Photo</label>
+                {collection[card.id]?.image ? (
+                  <div className="relative">
+                    <img src={collection[card.id].image} alt={card.setName} className="w-full rounded-xl" />
+                    <button 
+                      onClick={() => onUpdate(card.id, { image: null })} 
+                      className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white p-1.5 rounded-lg"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-500">
+                    <svg className="w-8 h-8 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-slate-500 text-sm">Tap to add photo</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  </label>
+                )}
+              </div>
+
+              {/* Your serial number (for numbered cards) */}
+              {card.serial && (
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Your Serial Number</label>
+                  <input 
+                    type="text" 
+                    value={serialNum} 
+                    onChange={(e) => setSerialNum(e.target.value)} 
+                    placeholder={`e.g., 42${card.serial}`} 
+                    className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" 
+                  />
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label className="block text-slate-300 text-sm font-medium mb-2">Notes</label>
+                <textarea 
+                  value={notes} 
+                  onChange={(e) => setNotes(e.target.value)} 
+                  placeholder="Purchase price, condition, where you got it..." 
+                  rows={3} 
+                  className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 resize-none" 
+                />
+              </div>
+
+              <button 
+                onClick={handleSaveNotes} 
+                className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl"
+              >
+                Save
+              </button>
+            </>
           )}
-
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">Notes</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Purchase price, condition..." rows={3} className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 resize-none" />
-          </div>
-
-          <button onClick={() => { onUpdate(card.id, { notes, serialNumber: serialNum }); onClose(); }} className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl">Save Changes</button>
         </div>
       </div>
     </div>
@@ -454,10 +716,19 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, onSortChange, showCollectedO
         <div className="mb-6">
           <p className="text-slate-400 text-sm font-medium mb-3">Sort By</p>
           <div className="grid grid-cols-2 gap-2">
-            {[{key:'rarity',label:'Rarity (Base → 1/1)'},{key:'collected',label:'Collected First'},{key:'missing',label:'Missing First'},{key:'alpha',label:'Alphabetical'}].map(o => (
+            {[
+              {key:'rarity',label:'Rarity (Base → 1/1)'},
+              {key:'collected',label:'Collected First'},
+              {key:'missing',label:'Missing First'},
+              {key:'alpha',label:'Alphabetical'},
+              {key:'custom',label:'Custom Order'}
+            ].map(o => (
               <button key={o.key} onClick={() => onSortChange(o.key)} className={`px-4 py-3 rounded-xl text-sm font-medium ${sortBy === o.key ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>{o.label}</button>
             ))}
           </div>
+          {sortBy === 'custom' && (
+            <p className="text-slate-500 text-xs mt-2">Drag cards using the ☰ handle to reorder</p>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -481,7 +752,7 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, onSortChange, showCollectedO
   );
 };
 
-// Add Card Modal Component
+// Add Card Modal
 const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef }) => {
   const [formData, setFormData] = useState({
     setKey: '',
@@ -683,6 +954,7 @@ export default function App() {
   const [customCards, setCustomCards] = useState({});
   const [hiddenCards, setHiddenCards] = useState({});
   const [hiddenSets, setHiddenSets] = useState({});
+  const [cardOrder, setCardOrder] = useState({}); // Custom card ordering per set
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [showMissingOnly, setShowMissingOnly] = useState(false);
@@ -719,11 +991,13 @@ export default function App() {
           setCustomCards(data.customCards || {});
           setHiddenCards(data.hiddenCards || {});
           setHiddenSets(data.hiddenSets || {});
+          setCardOrder(data.cardOrder || {});
           setLastSavedData(JSON.stringify({ 
             collection: data.collection || {}, 
             customCards: data.customCards || {},
             hiddenCards: data.hiddenCards || {},
-            hiddenSets: data.hiddenSets || {}
+            hiddenSets: data.hiddenSets || {},
+            cardOrder: data.cardOrder || {}
           }));
         }
       } catch (error) { console.error('Error loading:', error); setSaveError('Failed to load. Please refresh.'); }
@@ -734,7 +1008,7 @@ export default function App() {
 
   useEffect(() => {
     if (!user || !initialLoadDone) return;
-    const currentData = JSON.stringify({ collection, customCards, hiddenCards, hiddenSets });
+    const currentData = JSON.stringify({ collection, customCards, hiddenCards, hiddenSets, cardOrder });
     if (currentData === lastSavedData) return;
     pendingChangesRef.current = true;
     
@@ -746,6 +1020,7 @@ export default function App() {
           customCards, 
           hiddenCards,
           hiddenSets,
+          cardOrder,
           updatedAt: new Date().toISOString() 
         }, { merge: true });
         setLastSavedData(currentData);
@@ -760,6 +1035,7 @@ export default function App() {
               customCards, 
               hiddenCards,
               hiddenSets,
+              cardOrder,
               updatedAt: new Date().toISOString() 
             }, { merge: true });
             setLastSavedData(currentData);
@@ -772,7 +1048,7 @@ export default function App() {
     };
     const timeoutId = setTimeout(saveToFirestore, 1500);
     return () => clearTimeout(timeoutId);
-  }, [collection, customCards, hiddenCards, hiddenSets, user, initialLoadDone, lastSavedData]);
+  }, [collection, customCards, hiddenCards, hiddenSets, cardOrder, user, initialLoadDone, lastSavedData]);
 
   const handleLogin = async () => {
     setAuthLoading(true);
@@ -782,7 +1058,7 @@ export default function App() {
 
   const handleLogout = async () => {
     if (pendingChangesRef.current && !window.confirm('Unsaved changes. Log out?')) return;
-    try { await signOut(auth); setCollection({}); setCustomCards({}); setHiddenCards({}); setHiddenSets({}); } 
+    try { await signOut(auth); setCollection({}); setCustomCards({}); setHiddenCards({}); setHiddenSets({}); setCardOrder({}); } 
     catch (e) { console.error('Logout error:', e); }
   };
 
@@ -802,9 +1078,8 @@ export default function App() {
     return merged;
   }, [customCards]);
 
-  // IMMEDIATE DELETE - no confirmation modal
+  // IMMEDIATE DELETE CARD
   const handleDeleteCard = (card) => {
-    // For custom cards (id starts with 'custom-'), remove from customCards
     if (card.id.startsWith('custom-')) {
       const setKey = Object.keys(mergedCardData.sets).find(k => 
         mergedCardData.sets[k].cards.some(c => c.id === card.id)
@@ -822,10 +1097,8 @@ export default function App() {
         });
       }
     } else {
-      // For base cards from JSON, add to hidden list
       setHiddenCards(prev => ({ ...prev, [card.id]: true }));
     }
-    // Remove from collection if collected
     if (collection[card.id]) {
       setCollection(prev => { 
         const newCollection = { ...prev }; 
@@ -835,32 +1108,53 @@ export default function App() {
     }
   };
 
-  // IMMEDIATE DELETE COLLECTION - no confirmation modal  
+  // IMMEDIATE DELETE COLLECTION
   const handleDeleteCollection = (setKey) => {
     const set = mergedCardData.sets[setKey];
     if (!set) return;
     
-    // Check if this is a custom set (all cards are custom)
     const isCustomSet = set.cards.every(c => c.id.startsWith('custom-'));
     
     if (isCustomSet) {
-      // Remove the entire custom set
       setCustomCards(prev => {
         const { [setKey]: removed, ...rest } = prev;
         return rest;
       });
     } else {
-      // Hide the set (for base sets from JSON)
       setHiddenSets(prev => ({ ...prev, [setKey]: true }));
     }
     
-    // Remove all cards from collection
     const cardIds = set.cards.map(c => c.id);
     setCollection(prev => {
       const newCollection = { ...prev };
       cardIds.forEach(id => delete newCollection[id]);
       return newCollection;
     });
+  };
+
+  // EDIT CARD - update card details in customCards
+  const handleEditCard = (updatedCard) => {
+    const setKey = Object.keys(mergedCardData.sets).find(k => 
+      mergedCardData.sets[k].cards.some(c => c.id === updatedCard.id)
+    );
+    if (!setKey) return;
+
+    setCustomCards(prev => {
+      const existingSet = prev[setKey] || { ...mergedCardData.sets[setKey], cards: [...mergedCardData.sets[setKey].cards] };
+      const existingCards = existingSet.cards || mergedCardData.sets[setKey].cards;
+      const updatedCards = existingCards.map(c => c.id === updatedCard.id ? updatedCard : c);
+      return { ...prev, [setKey]: { ...existingSet, cards: updatedCards } };
+    });
+    
+    // Update selected card to show new values
+    setSelectedCard(updatedCard);
+  };
+
+  // REORDER CARDS - save custom order for a set
+  const handleReorderCards = (setKey, newOrder) => {
+    setCardOrder(prev => ({ ...prev, [setKey]: newOrder }));
+    // Switch to custom sort when user reorders
+    if (sortBy !== 'custom') setSortBy('custom');
   };
 
   const handleDuplicateCard = (card) => {
@@ -898,9 +1192,9 @@ export default function App() {
   const allCards = useMemo(() => {
     const cards = [];
     Object.entries(mergedCardData.sets).forEach(([setKey, set]) => {
-      if (hiddenSets[setKey]) return; // Skip hidden sets
+      if (hiddenSets[setKey]) return;
       set.cards.forEach(card => {
-        if (!hiddenCards[card.id]) { // Skip hidden cards
+        if (!hiddenCards[card.id]) {
           cards.push({ ...card, setKey, setName: card.setName || set.name, cardNumber: card.cardNumber || set.cardNumber, category: set.category });
         }
       });
@@ -911,11 +1205,10 @@ export default function App() {
   const filteredSets = useMemo(() => {
     const result = {};
     Object.entries(mergedCardData.sets).forEach(([setKey, set]) => {
-      // Skip hidden sets
       if (hiddenSets[setKey]) return;
       
       let cards = set.cards
-        .filter(c => !hiddenCards[c.id]) // Filter out hidden cards
+        .filter(c => !hiddenCards[c.id])
         .map(c => ({ ...c, setKey, setName: c.setName || set.name, cardNumber: c.cardNumber || set.cardNumber, category: set.category }));
       
       if (activeFilter !== 'all' && set.category !== activeFilter) return;
@@ -990,9 +1283,9 @@ export default function App() {
         </div>
       </div>
 
-      {/* Swipe hint */}
+      {/* Hints */}
       <div className="px-4 py-2">
-        <p className="text-slate-500 text-xs text-center">← Swipe left on cards or collections to delete</p>
+        <p className="text-slate-500 text-xs text-center">← Swipe left to delete • Drag ☰ to reorder • Tap card to edit</p>
       </div>
 
       {/* Search + Filter */}
@@ -1031,12 +1324,14 @@ export default function App() {
             onDelete={handleDeleteCard}
             onDuplicate={handleDuplicateCard}
             onDeleteCollection={handleDeleteCollection}
+            onReorderCards={handleReorderCards}
             sortBy={sortBy}
+            customOrder={cardOrder[setKey]}
           />
         ))}
       </div>
 
-      {/* FAB for adding cards */}
+      {/* FAB */}
       <button
         onClick={() => setShowAddCard(true)}
         className="fixed bottom-24 right-4 w-14 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg shadow-orange-500/30 flex items-center justify-center transition-all hover:scale-105 z-20"
@@ -1046,7 +1341,7 @@ export default function App() {
         </svg>
       </button>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Nav */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-2 py-2 z-30">
         <div className="flex justify-around max-w-md mx-auto">
           {[
@@ -1071,7 +1366,16 @@ export default function App() {
       </div>
 
       {/* Modals */}
-      {selectedCard && <CardDetailModal card={selectedCard} collection={collection} onClose={() => setSelectedCard(null)} onUpdate={updateCard} onToggle={toggleCollected} />}
+      {selectedCard && (
+        <CardDetailModal 
+          card={selectedCard} 
+          collection={collection} 
+          onClose={() => setSelectedCard(null)} 
+          onUpdate={updateCard} 
+          onToggle={toggleCollected}
+          onEditCard={handleEditCard}
+        />
+      )}
       <AddCardModal isOpen={showAddCard} onClose={() => setShowAddCard(false)} onAddCard={handleAddCard} existingSets={Object.keys(mergedCardData.sets)} cardDataRef={mergedCardData} />
       <FilterSortModal isOpen={showFilterSort} onClose={() => setShowFilterSort(false)} sortBy={sortBy} onSortChange={setSortBy} showCollectedOnly={showCollectedOnly} onCollectedFilterChange={setShowCollectedOnly} showMissingOnly={showMissingOnly} onMissingFilterChange={setShowMissingOnly} />
       {showComingSoon && <ComingSoonModal feature={showComingSoon} onClose={() => setShowComingSoon(null)} />}
