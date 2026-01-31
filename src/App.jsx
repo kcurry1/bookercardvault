@@ -68,110 +68,219 @@ const ComingSoonModal = ({ feature, onClose }) => (
     </div>
   </div>
 );
-// Card List Item - LIST VIEW ONLY
-const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onEdit, onDelete, onDuplicate }) => {
-  const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef(null);
-  const rarityColor = getRarityColor(card.serial);
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+// Card List Item with iOS-style Swipe-to-Delete
+const CardListItem = ({ card, collected, hasImage, onToggle, onSelect, onDelete, onDuplicate }) => {
+  const [swipeX, setSwipeX] = useState(0);
+  const [startX, setStartX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const containerRef = useRef(null);
+  const rarityColor = getRarityColor(card.serial);
+  const DELETE_THRESHOLD = -75;
+
+  const handleTouchStart = (e) => {
+    setStartX(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isSwiping) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - startX;
+    setSwipeX(Math.max(-100, Math.min(0, diff)));
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    if (swipeX < DELETE_THRESHOLD) {
+      setIsDeleting(true);
+      setTimeout(() => onDelete(card), 150);
+    } else {
+      setSwipeX(0);
+    }
+  };
+
+  // Mouse support for desktop testing
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return;
+    setStartX(e.clientX);
+    setIsSwiping(true);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isSwiping) return;
+    const diff = e.clientX - startX;
+    setSwipeX(Math.max(-100, Math.min(0, diff)));
+  };
+
+  const handleMouseUp = () => {
+    if (!isSwiping) return;
+    setIsSwiping(false);
+    if (swipeX < DELETE_THRESHOLD) {
+      setIsDeleting(true);
+      setTimeout(() => onDelete(card), 150);
+    } else {
+      setSwipeX(0);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isSwiping) {
+      setIsSwiping(false);
+      setSwipeX(0);
+    }
+  };
+
+  if (isDeleting) {
+    return <div className="h-0 overflow-hidden transition-all duration-200 ease-out opacity-0" />;
+  }
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${collected ? 'bg-slate-800/80 border-slate-600' : 'bg-slate-800/40 border-slate-700 hover:border-slate-600'}`}>
-      {/* Color bar - matches rarity when collected */}
-      <div className={`w-1.5 h-14 rounded-full ${collected ? rarityColor : 'bg-slate-600'} ${collected ? 'opacity-100' : 'opacity-40'}`} />
-      
-      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onSelect(card)}>
-        <div className="flex items-center gap-2">
-          <p className="text-white font-medium truncate">{card.parallel}</p>
-          {collected && (
-            <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-          )}
-        </div>
-        <p className="text-slate-400 text-sm truncate">
-          #{card.cardNumber}
-          {card.serial && <span className={`ml-2 font-medium ${getRarityTextColor(card.serial)}`}>{card.serial}</span>}
-          {card.source && <span className="text-slate-500 ml-2">• {card.source}</span>}
-        </p>
+    <div className="relative overflow-hidden rounded-xl" ref={containerRef}>
+      {/* Delete background - red with trash icon */}
+      <div className="absolute inset-y-0 right-0 w-24 bg-red-500 flex items-center justify-end pr-4 rounded-r-xl">
+        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
       </div>
       
-      <div className="flex items-center gap-2">
-        {hasImage && (
-          <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
-            <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-        )}
+      {/* Swipeable card content */}
+      <div 
+        className={`relative flex items-center gap-3 p-3 border ${collected ? 'bg-slate-800 border-slate-600' : 'bg-slate-800 border-slate-700'} rounded-xl cursor-grab active:cursor-grabbing`}
+        style={{ 
+          transform: `translateX(${swipeX}px)`, 
+          transition: isSwiping ? 'none' : 'transform 0.2s ease-out'
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Color bar - matches rarity when collected */}
+        <div className={`w-1.5 h-14 rounded-full ${collected ? rarityColor : 'bg-slate-600'} ${collected ? 'opacity-100' : 'opacity-40'}`} />
         
-        <button 
-          onClick={(e) => { e.stopPropagation(); onToggle(card.id); }}
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${collected ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
+        <div 
+          className="flex-1 min-w-0" 
+          onClick={() => { if (swipeX === 0 && !isSwiping) onSelect(card); }}
         >
-          {collected ? (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          )}
-        </button>
-
-        <div className="relative" ref={menuRef}>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-700"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
-          </button>
-          
-          {showMenu && (
-            <div className="absolute right-0 top-full mt-1 w-40 bg-slate-700 rounded-xl border border-slate-600 shadow-xl z-20 overflow-hidden">
-              <button onClick={(e) => { e.stopPropagation(); onEdit(card); setShowMenu(false); }} className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-600 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                Edit Card
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); onDuplicate(card); setShowMenu(false); }} className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-600 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                Duplicate
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); onDelete(card); setShowMenu(false); }} className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-slate-600 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                Delete
-              </button>
+          <div className="flex items-center gap-2">
+            <p className="text-white font-medium truncate">{card.parallel}</p>
+            {collected && (
+              <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            )}
+          </div>
+          <p className="text-slate-400 text-sm truncate">
+            #{card.cardNumber}
+            {card.serial && <span className={`ml-2 font-medium ${getRarityTextColor(card.serial)}`}>{card.serial}</span>}
+            {card.source && <span className="text-slate-500 ml-2">• {card.source}</span>}
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {hasImage && (
+            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
             </div>
           )}
+          
+          <button 
+            onClick={(e) => { e.stopPropagation(); if (swipeX === 0) onToggle(card.id); }}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${collected ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}
+          >
+            {collected ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            )}
+          </button>
+
+          <button 
+            onClick={(e) => { e.stopPropagation(); if (swipeX === 0) onDuplicate(card); }}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-700"
+            title="Duplicate card"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
   );
 };
-// Collection Section - Shows collection name then list of cards
-const CollectionSection = ({ title, cardNumber, count, collected, cards, collection, onToggle, onSelect, onEdit, onDelete, onDuplicate, onEditCollection, onDeleteCollection, sortBy }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef(null);
-  const progress = count > 0 ? Math.round((collected / count) * 100) : 0;
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+// Collection Section with Swipe-to-Delete
+const CollectionSection = ({ setKey, title, cardNumber, count, collected, cards, collection, onToggle, onSelect, onDelete, onDuplicate, onDeleteCollection, sortBy }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [swipeX, setSwipeX] = useState(0);
+  const [startX, setStartX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const progress = count > 0 ? Math.round((collected / count) * 100) : 0;
+  const DELETE_THRESHOLD = -75;
+
+  const handleTouchStart = (e) => {
+    setStartX(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isSwiping) return;
+    const diff = e.touches[0].clientX - startX;
+    setSwipeX(Math.max(-100, Math.min(0, diff)));
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    if (swipeX < DELETE_THRESHOLD) {
+      setIsDeleting(true);
+      setTimeout(() => onDeleteCollection(setKey), 150);
+    } else {
+      setSwipeX(0);
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return;
+    setStartX(e.clientX);
+    setIsSwiping(true);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isSwiping) return;
+    const diff = e.clientX - startX;
+    setSwipeX(Math.max(-100, Math.min(0, diff)));
+  };
+
+  const handleMouseUp = () => {
+    if (!isSwiping) return;
+    setIsSwiping(false);
+    if (swipeX < DELETE_THRESHOLD) {
+      setIsDeleting(true);
+      setTimeout(() => onDeleteCollection(setKey), 150);
+    } else {
+      setSwipeX(0);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isSwiping) {
+      setIsSwiping(false);
+      setSwipeX(0);
+    }
+  };
 
   const sortedCards = useMemo(() => {
     let sorted = [...cards];
@@ -184,11 +293,39 @@ const CollectionSection = ({ title, cardNumber, count, collected, cards, collect
     }
   }, [cards, sortBy, collection]);
 
+  if (isDeleting) {
+    return <div className="h-0 overflow-hidden transition-all duration-200 ease-out opacity-0 mb-3" />;
+  }
+
   return (
     <div className="mb-3">
-      <div className="flex items-center gap-2">
-        <button onClick={() => setIsOpen(!isOpen)} className="flex-1 flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-750 rounded-xl border border-slate-700">
-          <div className="flex items-center gap-2">
+      <div className="relative overflow-hidden rounded-xl">
+        {/* Delete background */}
+        <div className="absolute inset-y-0 right-0 w-24 bg-red-500 flex items-center justify-end pr-4 rounded-r-xl">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </div>
+
+        {/* Swipeable header */}
+        <div 
+          className="relative flex items-center justify-between p-3 bg-slate-800 rounded-xl border border-slate-700 cursor-grab active:cursor-grabbing"
+          style={{ 
+            transform: `translateX(${swipeX}px)`, 
+            transition: isSwiping ? 'none' : 'transform 0.2s ease-out'
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+        >
+          <div 
+            className="flex items-center gap-2 flex-1"
+            onClick={() => { if (swipeX === 0 && !isSwiping) setIsOpen(!isOpen); }}
+          >
             <svg className={`w-4 h-4 text-orange-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
             </svg>
@@ -204,27 +341,6 @@ const CollectionSection = ({ title, cardNumber, count, collected, cards, collect
               <div className="h-full bg-orange-500 rounded-full transition-all" style={{width: `${progress}%`}}/>
             </div>
           </div>
-        </button>
-        
-        <div className="relative" ref={menuRef}>
-          <button onClick={() => setShowMenu(!showMenu)} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-400 hover:text-slate-200">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
-          </button>
-          
-          {showMenu && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-slate-700 rounded-xl border border-slate-600 shadow-xl z-20 overflow-hidden">
-              <button onClick={() => { onEditCollection(); setShowMenu(false); }} className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-slate-600 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                Edit Collection
-              </button>
-              <button onClick={() => { onDeleteCollection(); setShowMenu(false); }} className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-slate-600 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                Delete Collection
-              </button>
-            </div>
-          )}
         </div>
       </div>
       
@@ -238,7 +354,6 @@ const CollectionSection = ({ title, cardNumber, count, collected, cards, collect
               hasImage={!!collection[card.id]?.image}
               onToggle={onToggle}
               onSelect={onSelect}
-              onEdit={onEdit}
               onDelete={onDelete}
               onDuplicate={onDuplicate}
             />
@@ -248,6 +363,7 @@ const CollectionSection = ({ title, cardNumber, count, collected, cards, collect
     </div>
   );
 };
+
 // Card Detail Modal
 const CardDetailModal = ({ card, collection, onClose, onUpdate, onToggle }) => {
   const [notes, setNotes] = useState(collection[card?.id]?.notes || '');
@@ -325,79 +441,41 @@ const CardDetailModal = ({ card, collection, onClose, onUpdate, onToggle }) => {
   );
 };
 
-// Edit Card Modal
-const EditCardModal = ({ card, onClose, onSave, isNew = false }) => {
-  const [formData, setFormData] = useState({ setName: card?.setName || '', cardNumber: card?.cardNumber || '', parallel: card?.parallel || '', serial: card?.serial || '', source: card?.source || '' });
-  if (!card) return null;
-
+// Filter/Sort Modal
+const FilterSortModal = ({ isOpen, onClose, sortBy, onSortChange, showCollectedOnly, onCollectedFilterChange, showMissingOnly, onMissingFilterChange }) => {
+  if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 border-b border-slate-700 flex items-center justify-between">
-          <h2 className="text-white font-bold text-lg">{isNew ? 'Add New Card' : 'Edit Card'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+      <div className="relative w-full max-w-lg bg-slate-800 rounded-t-3xl border-t border-slate-700 p-6 pb-8">
+        <div className="w-12 h-1 bg-slate-600 rounded-full mx-auto mb-6" />
+        <h3 className="text-white text-lg font-bold mb-4">Sort & Filter</h3>
+        
+        <div className="mb-6">
+          <p className="text-slate-400 text-sm font-medium mb-3">Sort By</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[{key:'rarity',label:'Rarity (Base → 1/1)'},{key:'collected',label:'Collected First'},{key:'missing',label:'Missing First'},{key:'alpha',label:'Alphabetical'}].map(o => (
+              <button key={o.key} onClick={() => onSortChange(o.key)} className={`px-4 py-3 rounded-xl text-sm font-medium ${sortBy === o.key ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>{o.label}</button>
+            ))}
+          </div>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); onSave({ ...card, ...formData }); onClose(); }} className="p-5 space-y-4">
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">Set Name</label>
-            <input type="text" value={formData.setName} onChange={(e) => setFormData(p => ({...p, setName: e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-slate-300 text-sm font-medium mb-2">Card #</label>
-              <input type="text" value={formData.cardNumber} onChange={(e) => setFormData(p => ({...p, cardNumber: e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500" />
-            </div>
-            <div>
-              <label className="block text-slate-300 text-sm font-medium mb-2">Serial</label>
-              <input type="text" value={formData.serial} onChange={(e) => setFormData(p => ({...p, serial: e.target.value}))} placeholder="/99" className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">Parallel</label>
-            <input type="text" value={formData.parallel} onChange={(e) => setFormData(p => ({...p, parallel: e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500" />
-          </div>
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">Source</label>
-            <input type="text" value={formData.source} onChange={(e) => setFormData(p => ({...p, source: e.target.value}))} placeholder="Hobby exclusive" className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-3 bg-slate-700 text-slate-300 font-medium rounded-xl hover:bg-slate-600">Cancel</button>
-            <button type="submit" className="flex-1 py-3 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600">{isNew ? 'Add' : 'Save'}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
 
-// Edit Collection Modal
-const EditCollectionModal = ({ collection, onClose, onSave }) => {
-  const [name, setName] = useState(collection?.name || '');
-  const [cardNumber, setCardNumber] = useState(collection?.cardNumber || '');
-  if (!collection) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 border-b border-slate-700">
-          <h2 className="text-white font-bold text-lg">Edit Collection</h2>
+        <div className="space-y-3">
+          <p className="text-slate-400 text-sm font-medium">Filter</p>
+          <button onClick={() => { onCollectedFilterChange(!showCollectedOnly); if (!showCollectedOnly) onMissingFilterChange(false); }} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ${showCollectedOnly ? 'bg-green-500/20 border border-green-500/30' : 'bg-slate-700'}`}>
+            <span className={showCollectedOnly ? 'text-green-400' : 'text-slate-300'}>Show Collected Only</span>
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${showCollectedOnly ? 'bg-green-500' : 'bg-slate-600'}`}>
+              {showCollectedOnly && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+            </div>
+          </button>
+          <button onClick={() => { onMissingFilterChange(!showMissingOnly); if (!showMissingOnly) onCollectedFilterChange(false); }} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ${showMissingOnly ? 'bg-purple-500/20 border border-purple-500/30' : 'bg-slate-700'}`}>
+            <span className={showMissingOnly ? 'text-purple-400' : 'text-slate-300'}>Show Missing Only</span>
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${showMissingOnly ? 'bg-purple-500' : 'bg-slate-600'}`}>
+              {showMissingOnly && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+            </div>
+          </button>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); onSave({ ...collection, name, cardNumber }); onClose(); }} className="p-5 space-y-4">
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">Collection Name</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500" />
-          </div>
-          <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">Card Number</label>
-            <input type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500" />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-3 bg-slate-700 text-slate-300 font-medium rounded-xl hover:bg-slate-600">Cancel</button>
-            <button type="submit" className="flex-1 py-3 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600">Save</button>
-          </div>
-        </form>
+        <button onClick={onClose} className="w-full mt-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl">Done</button>
       </div>
     </div>
   );
@@ -424,16 +502,6 @@ const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef })
       setErrors({});
     }
   }, [isOpen]);
-
-  const generateId = (setKey) => {
-    const prefix = setKey.substring(0, 2).toLowerCase();
-    const existingCards = cardDataRef?.sets?.[setKey]?.cards || [];
-    const maxNum = existingCards.reduce((max, card) => {
-      const match = card.id.match(/-(\d+)$/);
-      return match ? Math.max(max, parseInt(match[1])) : max;
-    }, 0);
-    return `custom-${Date.now()}`;
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -468,7 +536,7 @@ const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef })
       : formData.setKey;
 
     const newCard = {
-      id: generateId(targetSetKey),
+      id: `custom-${Date.now()}`,
       setName: formData.setName.trim(),
       cardNumber: formData.cardNumber.trim(),
       parallel: formData.parallel.trim(),
@@ -568,64 +636,6 @@ const AddCardModal = ({ isOpen, onClose, onAddCard, existingSets, cardDataRef })
   );
 };
 
-// Delete Confirmation Modal
-const DeleteConfirmModal = ({ title, message, onClose, onConfirm }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-    <div className="relative w-full max-w-sm bg-slate-800 rounded-2xl border border-slate-700 p-6">
-      <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-      </div>
-      <h3 className="text-white text-lg font-bold text-center mb-2">{title}</h3>
-      <p className="text-slate-400 text-sm text-center mb-6">{message}</p>
-      <div className="flex gap-3">
-        <button onClick={onClose} className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl">Cancel</button>
-        <button onClick={onConfirm} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl">Delete</button>
-      </div>
-    </div>
-  </div>
-);
-
-// Filter/Sort Modal
-const FilterSortModal = ({ isOpen, onClose, sortBy, onSortChange, showCollectedOnly, onCollectedFilterChange, showMissingOnly, onMissingFilterChange }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-slate-800 rounded-t-3xl border-t border-slate-700 p-6 pb-8">
-        <div className="w-12 h-1 bg-slate-600 rounded-full mx-auto mb-6" />
-        <h3 className="text-white text-lg font-bold mb-4">Sort & Filter</h3>
-        
-        <div className="mb-6">
-          <p className="text-slate-400 text-sm font-medium mb-3">Sort By</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[{key:'rarity',label:'Rarity (Base → 1/1)'},{key:'collected',label:'Collected First'},{key:'missing',label:'Missing First'},{key:'alpha',label:'Alphabetical'}].map(o => (
-              <button key={o.key} onClick={() => onSortChange(o.key)} className={`px-4 py-3 rounded-xl text-sm font-medium ${sortBy === o.key ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>{o.label}</button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <p className="text-slate-400 text-sm font-medium">Filter</p>
-          <button onClick={() => { onCollectedFilterChange(!showCollectedOnly); if (!showCollectedOnly) onMissingFilterChange(false); }} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ${showCollectedOnly ? 'bg-green-500/20 border border-green-500/30' : 'bg-slate-700'}`}>
-            <span className={showCollectedOnly ? 'text-green-400' : 'text-slate-300'}>Show Collected Only</span>
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${showCollectedOnly ? 'bg-green-500' : 'bg-slate-600'}`}>
-              {showCollectedOnly && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-            </div>
-          </button>
-          <button onClick={() => { onMissingFilterChange(!showMissingOnly); if (!showMissingOnly) onCollectedFilterChange(false); }} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ${showMissingOnly ? 'bg-purple-500/20 border border-purple-500/30' : 'bg-slate-700'}`}>
-            <span className={showMissingOnly ? 'text-purple-400' : 'text-slate-300'}>Show Missing Only</span>
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${showMissingOnly ? 'bg-purple-500' : 'bg-slate-600'}`}>
-              {showMissingOnly && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-            </div>
-          </button>
-        </div>
-        <button onClick={onClose} className="w-full mt-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl">Done</button>
-      </div>
-    </div>
-  );
-};
-
 // Login Screen
 const LoginScreen = ({ onLogin, loading }) => (
   <div className="min-h-screen bg-black relative overflow-hidden">
@@ -664,12 +674,15 @@ const LoginScreen = ({ onLogin, loading }) => (
     </div>
   </div>
 );
+
 // Main App
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [collection, setCollection] = useState({});
   const [customCards, setCustomCards] = useState({});
+  const [hiddenCards, setHiddenCards] = useState({});
+  const [hiddenSets, setHiddenSets] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [showMissingOnly, setShowMissingOnly] = useState(false);
@@ -684,9 +697,6 @@ export default function App() {
   const [showFilterSort, setShowFilterSort] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
   const [sortBy, setSortBy] = useState('rarity');
-  const [editingCard, setEditingCard] = useState(null);
-  const [editingCollection, setEditingCollection] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const pendingChangesRef = useRef(false);
 
   useEffect(() => {
@@ -707,7 +717,14 @@ export default function App() {
           const data = docSnap.data();
           setCollection(data.collection || {});
           setCustomCards(data.customCards || {});
-          setLastSavedData(JSON.stringify({ collection: data.collection || {}, customCards: data.customCards || {} }));
+          setHiddenCards(data.hiddenCards || {});
+          setHiddenSets(data.hiddenSets || {});
+          setLastSavedData(JSON.stringify({ 
+            collection: data.collection || {}, 
+            customCards: data.customCards || {},
+            hiddenCards: data.hiddenCards || {},
+            hiddenSets: data.hiddenSets || {}
+          }));
         }
       } catch (error) { console.error('Error loading:', error); setSaveError('Failed to load. Please refresh.'); }
       setInitialLoadDone(true);
@@ -717,14 +734,20 @@ export default function App() {
 
   useEffect(() => {
     if (!user || !initialLoadDone) return;
-    const currentData = JSON.stringify({ collection, customCards });
+    const currentData = JSON.stringify({ collection, customCards, hiddenCards, hiddenSets });
     if (currentData === lastSavedData) return;
     pendingChangesRef.current = true;
     
     const saveToFirestore = async () => {
       setSyncing(true); setSaveError(null);
       try {
-        await setDoc(doc(db, 'users', user.uid), { collection, customCards, updatedAt: new Date().toISOString() }, { merge: true });
+        await setDoc(doc(db, 'users', user.uid), { 
+          collection, 
+          customCards, 
+          hiddenCards,
+          hiddenSets,
+          updatedAt: new Date().toISOString() 
+        }, { merge: true });
         setLastSavedData(currentData);
         pendingChangesRef.current = false;
       } catch (error) {
@@ -732,7 +755,13 @@ export default function App() {
         setSaveError('Failed to save. Retrying...');
         setTimeout(async () => {
           try {
-            await setDoc(doc(db, 'users', user.uid), { collection, customCards, updatedAt: new Date().toISOString() }, { merge: true });
+            await setDoc(doc(db, 'users', user.uid), { 
+              collection, 
+              customCards, 
+              hiddenCards,
+              hiddenSets,
+              updatedAt: new Date().toISOString() 
+            }, { merge: true });
             setLastSavedData(currentData);
             pendingChangesRef.current = false;
             setSaveError(null);
@@ -743,7 +772,7 @@ export default function App() {
     };
     const timeoutId = setTimeout(saveToFirestore, 1500);
     return () => clearTimeout(timeoutId);
-  }, [collection, customCards, user, initialLoadDone, lastSavedData]);
+  }, [collection, customCards, hiddenCards, hiddenSets, user, initialLoadDone, lastSavedData]);
 
   const handleLogin = async () => {
     setAuthLoading(true);
@@ -753,7 +782,7 @@ export default function App() {
 
   const handleLogout = async () => {
     if (pendingChangesRef.current && !window.confirm('Unsaved changes. Log out?')) return;
-    try { await signOut(auth); setCollection({}); setCustomCards({}); } 
+    try { await signOut(auth); setCollection({}); setCustomCards({}); setHiddenCards({}); setHiddenSets({}); } 
     catch (e) { console.error('Logout error:', e); }
   };
 
@@ -773,54 +802,76 @@ export default function App() {
     return merged;
   }, [customCards]);
 
-  const handleEditCard = (card) => setEditingCard({ ...card, isNew: false });
-  
-  const handleSaveCard = (updatedCard) => {
-    const setKey = Object.keys(mergedCardData.sets).find(k => mergedCardData.sets[k].cards.some(c => c.id === updatedCard.id));
-    if (setKey) {
-      setCustomCards(prev => {
-        const existingSet = prev[setKey] || mergedCardData.sets[setKey];
-        return { ...prev, [setKey]: { ...existingSet, cards: existingSet.cards.map(c => c.id === updatedCard.id ? updatedCard : c) } };
+  // IMMEDIATE DELETE - no confirmation modal
+  const handleDeleteCard = (card) => {
+    // For custom cards (id starts with 'custom-'), remove from customCards
+    if (card.id.startsWith('custom-')) {
+      const setKey = Object.keys(mergedCardData.sets).find(k => 
+        mergedCardData.sets[k].cards.some(c => c.id === card.id)
+      );
+      if (setKey) {
+        setCustomCards(prev => {
+          const existingSet = prev[setKey];
+          if (!existingSet) return prev;
+          const newCards = existingSet.cards.filter(c => c.id !== card.id);
+          if (newCards.length === 0) {
+            const { [setKey]: removed, ...rest } = prev;
+            return rest;
+          }
+          return { ...prev, [setKey]: { ...existingSet, cards: newCards } };
+        });
+      }
+    } else {
+      // For base cards from JSON, add to hidden list
+      setHiddenCards(prev => ({ ...prev, [card.id]: true }));
+    }
+    // Remove from collection if collected
+    if (collection[card.id]) {
+      setCollection(prev => { 
+        const newCollection = { ...prev }; 
+        delete newCollection[card.id]; 
+        return newCollection; 
       });
     }
+  };
+
+  // IMMEDIATE DELETE COLLECTION - no confirmation modal  
+  const handleDeleteCollection = (setKey) => {
+    const set = mergedCardData.sets[setKey];
+    if (!set) return;
+    
+    // Check if this is a custom set (all cards are custom)
+    const isCustomSet = set.cards.every(c => c.id.startsWith('custom-'));
+    
+    if (isCustomSet) {
+      // Remove the entire custom set
+      setCustomCards(prev => {
+        const { [setKey]: removed, ...rest } = prev;
+        return rest;
+      });
+    } else {
+      // Hide the set (for base sets from JSON)
+      setHiddenSets(prev => ({ ...prev, [setKey]: true }));
+    }
+    
+    // Remove all cards from collection
+    const cardIds = set.cards.map(c => c.id);
+    setCollection(prev => {
+      const newCollection = { ...prev };
+      cardIds.forEach(id => delete newCollection[id]);
+      return newCollection;
+    });
   };
 
   const handleDuplicateCard = (card) => {
     const setKey = Object.keys(mergedCardData.sets).find(k => mergedCardData.sets[k].cards.some(c => c.id === card.id));
     if (setKey) {
-      const newCard = { ...card, id: `${card.id}-dup-${Date.now()}`, parallel: `${card.parallel} (Copy)` };
+      const newCard = { ...card, id: `custom-${Date.now()}`, parallel: `${card.parallel} (Copy)` };
       setCustomCards(prev => {
         const existingSet = prev[setKey] || { ...mergedCardData.sets[setKey], cards: [...mergedCardData.sets[setKey].cards] };
         return { ...prev, [setKey]: { ...existingSet, cards: [...existingSet.cards, newCard] } };
       });
     }
-  };
-
-  const handleDeleteCard = (card) => setDeleteConfirm({ type: 'card', item: card, title: 'Delete Card?', message: `Delete "${card.parallel}"? This cannot be undone.` });
-  
-  const confirmDeleteCard = () => {
-    const card = deleteConfirm.item;
-    const setKey = Object.keys(mergedCardData.sets).find(k => mergedCardData.sets[k].cards.some(c => c.id === card.id));
-    if (setKey) {
-      setCustomCards(prev => {
-        const existingSet = prev[setKey] || { ...mergedCardData.sets[setKey], cards: [...mergedCardData.sets[setKey].cards] };
-        return { ...prev, [setKey]: { ...existingSet, cards: existingSet.cards.filter(c => c.id !== card.id) } };
-      });
-      if (collection[card.id]) setCollection(prev => { const n = { ...prev }; delete n[card.id]; return n; });
-    }
-    setDeleteConfirm(null);
-  };
-
-  const handleEditCollection = (setKey, set) => setEditingCollection({ setKey, ...set });
-  const handleSaveCollection = (updated) => setCustomCards(prev => ({ ...prev, [updated.setKey]: { ...(prev[updated.setKey] || mergedCardData.sets[updated.setKey]), name: updated.name, cardNumber: updated.cardNumber } }));
-  const handleDeleteCollection = (setKey, set) => setDeleteConfirm({ type: 'collection', item: { setKey, ...set }, title: 'Delete Collection?', message: `Delete "${set.name}" and all cards? Cannot be undone.` });
-  
-  const confirmDeleteCollection = () => {
-    const { setKey } = deleteConfirm.item;
-    const cardsToRemove = mergedCardData.sets[setKey]?.cards || [];
-    setCollection(prev => { const n = { ...prev }; cardsToRemove.forEach(c => delete n[c.id]); return n; });
-    setCustomCards(prev => { const n = { ...prev }; delete n[setKey]; return n; });
-    setDeleteConfirm(null);
   };
 
   const handleAddCard = (result) => {
@@ -847,15 +898,26 @@ export default function App() {
   const allCards = useMemo(() => {
     const cards = [];
     Object.entries(mergedCardData.sets).forEach(([setKey, set]) => {
-      set.cards.forEach(card => cards.push({ ...card, setKey, setName: card.setName || set.name, cardNumber: card.cardNumber || set.cardNumber, category: set.category }));
+      if (hiddenSets[setKey]) return; // Skip hidden sets
+      set.cards.forEach(card => {
+        if (!hiddenCards[card.id]) { // Skip hidden cards
+          cards.push({ ...card, setKey, setName: card.setName || set.name, cardNumber: card.cardNumber || set.cardNumber, category: set.category });
+        }
+      });
     });
     return cards;
-  }, [mergedCardData]);
+  }, [mergedCardData, hiddenCards, hiddenSets]);
 
   const filteredSets = useMemo(() => {
     const result = {};
     Object.entries(mergedCardData.sets).forEach(([setKey, set]) => {
-      let cards = set.cards.map(c => ({ ...c, setKey, setName: c.setName || set.name, cardNumber: c.cardNumber || set.cardNumber, category: set.category }));
+      // Skip hidden sets
+      if (hiddenSets[setKey]) return;
+      
+      let cards = set.cards
+        .filter(c => !hiddenCards[c.id]) // Filter out hidden cards
+        .map(c => ({ ...c, setKey, setName: c.setName || set.name, cardNumber: c.cardNumber || set.cardNumber, category: set.category }));
+      
       if (activeFilter !== 'all' && set.category !== activeFilter) return;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -866,19 +928,21 @@ export default function App() {
       if (cards.length > 0) result[setKey] = { ...set, cards };
     });
     return result;
-  }, [mergedCardData, activeFilter, searchQuery, showMissingOnly, showCollectedOnly, collection]);
+  }, [mergedCardData, activeFilter, searchQuery, showMissingOnly, showCollectedOnly, collection, hiddenCards, hiddenSets]);
 
   const stats = useMemo(() => {
     const total = allCards.length;
     const collected = allCards.filter(c => collection[c.id]?.collected).length;
     const byCategory = {};
-    Object.entries(mergedCardData.sets).forEach(([_, set]) => {
+    Object.entries(mergedCardData.sets).forEach(([setKey, set]) => {
+      if (hiddenSets[setKey]) return;
       if (!byCategory[set.category]) byCategory[set.category] = { total: 0, collected: 0 };
-      byCategory[set.category].total += set.cards.length;
-      byCategory[set.category].collected += set.cards.filter(c => collection[c.id]?.collected).length;
+      const visibleCards = set.cards.filter(c => !hiddenCards[c.id]);
+      byCategory[set.category].total += visibleCards.length;
+      byCategory[set.category].collected += visibleCards.filter(c => collection[c.id]?.collected).length;
     });
     return { total, collected, byCategory };
-  }, [allCards, mergedCardData, collection]);
+  }, [allCards, mergedCardData, collection, hiddenCards, hiddenSets]);
 
   const toggleCollected = (cardId) => setCollection(prev => ({ ...prev, [cardId]: { ...prev[cardId], collected: !prev[cardId]?.collected } }));
   const updateCard = (cardId, updates) => setCollection(prev => ({ ...prev, [cardId]: { ...prev[cardId], ...updates } }));
@@ -926,8 +990,13 @@ export default function App() {
         </div>
       </div>
 
+      {/* Swipe hint */}
+      <div className="px-4 py-2">
+        <p className="text-slate-500 text-xs text-center">← Swipe left on cards or collections to delete</p>
+      </div>
+
       {/* Search + Filter */}
-      <div className="px-4 py-3 flex gap-2">
+      <div className="px-4 py-2 flex gap-2">
         <div className="flex-1 relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input type="text" placeholder="Search parallels..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
@@ -949,7 +1018,8 @@ export default function App() {
       <div className="px-4 pb-4">
         {Object.entries(filteredSets).map(([setKey, set]) => (
           <CollectionSection 
-            key={setKey} 
+            key={setKey}
+            setKey={setKey}
             title={set.name.replace(/^(Flagship|Chrome|Holiday) - /, '')}
             cardNumber={set.cardNumber}
             count={set.cards.length} 
@@ -958,11 +1028,9 @@ export default function App() {
             collection={collection}
             onToggle={toggleCollected}
             onSelect={setSelectedCard}
-            onEdit={handleEditCard}
             onDelete={handleDeleteCard}
             onDuplicate={handleDuplicateCard}
-            onEditCollection={() => handleEditCollection(setKey, set)}
-            onDeleteCollection={() => handleDeleteCollection(setKey, set)}
+            onDeleteCollection={handleDeleteCollection}
             sortBy={sortBy}
           />
         ))}
@@ -1004,9 +1072,6 @@ export default function App() {
 
       {/* Modals */}
       {selectedCard && <CardDetailModal card={selectedCard} collection={collection} onClose={() => setSelectedCard(null)} onUpdate={updateCard} onToggle={toggleCollected} />}
-      {editingCard && <EditCardModal card={editingCard} onClose={() => setEditingCard(null)} onSave={handleSaveCard} isNew={editingCard.isNew} />}
-      {editingCollection && <EditCollectionModal collection={editingCollection} onClose={() => setEditingCollection(null)} onSave={handleSaveCollection} />}
-      {deleteConfirm && <DeleteConfirmModal title={deleteConfirm.title} message={deleteConfirm.message} onClose={() => setDeleteConfirm(null)} onConfirm={deleteConfirm.type === 'card' ? confirmDeleteCard : confirmDeleteCollection} />}
       <AddCardModal isOpen={showAddCard} onClose={() => setShowAddCard(false)} onAddCard={handleAddCard} existingSets={Object.keys(mergedCardData.sets)} cardDataRef={mergedCardData} />
       <FilterSortModal isOpen={showFilterSort} onClose={() => setShowFilterSort(false)} sortBy={sortBy} onSortChange={setSortBy} showCollectedOnly={showCollectedOnly} onCollectedFilterChange={setShowCollectedOnly} showMissingOnly={showMissingOnly} onMissingFilterChange={setShowMissingOnly} />
       {showComingSoon && <ComingSoonModal feature={showComingSoon} onClose={() => setShowComingSoon(null)} />}
