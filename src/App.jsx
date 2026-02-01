@@ -2,7 +2,10 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import cardData from './data/bookerCards.json';
+import cardDataRaw from './data/bookerCards.json';
+
+// Ensure cardData is an array (handles both array and {cards: []} formats)
+const cardData = Array.isArray(cardDataRaw) ? cardDataRaw : (cardDataRaw?.cards || []);
 
 // Get rarity color based on serial number
 const getRarityColor = (serial) => {
@@ -937,7 +940,7 @@ export default function App() {
 
   // Combine base cards with custom cards
   const allCards = useMemo(() => {
- const baseCards = cardData.filter(card => {
+    const baseCards = cardData.filter(card => {
       const id = getCardId(card);
       return !hiddenCards.includes(id) && !hiddenSets.includes(card.setName);
     });
