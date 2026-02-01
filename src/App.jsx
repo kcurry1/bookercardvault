@@ -937,7 +937,7 @@ export default function App() {
 
   // Combine base cards with custom cards
   const allCards = useMemo(() => {
-    const baseCards = cardData.filter(card => {
+ const baseCards = cardData.filter(card => {
       const id = getCardId(card);
       return !hiddenCards.includes(id) && !hiddenSets.includes(card.setName);
     });
