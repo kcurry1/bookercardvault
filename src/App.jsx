@@ -4,8 +4,37 @@ import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import cardDataRaw from './data/bookerCards.json';
 
-// Ensure cardData is an array (handles both array and {cards: []} formats)
-const cardData = Array.isArray(cardDataRaw) ? cardDataRaw : (cardDataRaw?.cards || []);
+// Extract all cards from the nested sets structure
+const getCardDataArray = (data) => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.cards)) return data.cards;
+  
+  // Handle nested sets structure: { sets: { "set-name": { name: "...", cards: [...] } } }
+  if (data.sets && typeof data.sets === 'object') {
+    const allCards = [];
+    Object.entries(data.sets).forEach(([setKey, set]) => {
+      if (set && Array.isArray(set.cards)) {
+        set.cards.forEach(card => {
+          // Use the parent set's name as the setName for grouping
+          // Create cardName from the card's setName + parallel for display
+          allCards.push({
+            ...card,
+            setName: set.name || card.setName || setKey,
+            cardName: card.cardName || card.parallel || card.setName || 'Card',
+          });
+        });
+      }
+    });
+    return allCards;
+  }
+  
+  return [];
+};
+const cardData = getCardDataArray(cardDataRaw);
+
+// Helper to ensure arrays
+const ensureArray = (val) => Array.isArray(val) ? val : [];
 
 // Get rarity color based on serial number
 const getRarityColor = (serial) => {
@@ -526,6 +555,7 @@ const EditCollectionModal = ({ isOpen, onClose, collectionName, onSave }) => {
 
 // Create Collection Modal (empty collection)
 const CreateCollectionModal = ({ isOpen, onClose, onSave, existingCollections }) => {
+  const safeExisting = Array.isArray(existingCollections) ? existingCollections : [];
   const [name, setName] = useState('');
   const [error, setError] = useState('');
 
@@ -543,7 +573,7 @@ const CreateCollectionModal = ({ isOpen, onClose, onSave, existingCollections })
       setError('Please enter a collection name');
       return;
     }
-    if (existingCollections.includes(name.trim())) {
+    if (safeExisting.includes(name.trim())) {
       setError('Collection already exists');
       return;
     }
@@ -588,6 +618,7 @@ const CreateCollectionModal = ({ isOpen, onClose, onSave, existingCollections })
 
 // Bulk Add Cards Modal
 const BulkAddCardsModal = ({ isOpen, onClose, onSave, collections }) => {
+  const safeCollections = Array.isArray(collections) ? collections : [];
   const [selectedCollection, setSelectedCollection] = useState('');
   const [newCollectionName, setNewCollectionName] = useState('');
   const [isNewCollection, setIsNewCollection] = useState(false);
@@ -596,13 +627,13 @@ const BulkAddCardsModal = ({ isOpen, onClose, onSave, collections }) => {
 
   useEffect(() => {
     if (isOpen) {
-      setSelectedCollection(collections[0] || '');
+      setSelectedCollection(safeCollections[0] || '');
       setNewCollectionName('');
       setIsNewCollection(false);
       setCards([{ cardName: '', cardNumber: '', parallel: '', serial: '', source: '' }]);
       setError('');
     }
-  }, [isOpen, collections]);
+  }, [isOpen, safeCollections]);
 
   if (!isOpen) return null;
 
@@ -703,7 +734,7 @@ const BulkAddCardsModal = ({ isOpen, onClose, onSave, collections }) => {
               onChange={(e) => setSelectedCollection(e.target.value)}
               className="w-full bg-slate-700 text-white px-3 py-2 rounded-lg border border-slate-600 focus:border-orange-500 focus:outline-none"
             >
-              {collections.map(c => (
+              {safeCollections.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -901,10 +932,10 @@ export default function App() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setCollectedCards(data.collectedCards || {});
-          setCustomCards(data.customCards || []);
-          setHiddenCards(data.hiddenCards || []);
-          setHiddenSets(data.hiddenSets || []);
-          setEmptyCollections(data.emptyCollections || []);
+          setCustomCards(ensureArray(data.customCards));
+          setHiddenCards(ensureArray(data.hiddenCards));
+          setHiddenSets(ensureArray(data.hiddenSets));
+          setEmptyCollections(ensureArray(data.emptyCollections));
           setCardOrder(data.cardOrder || {});
         }
       } else {
@@ -940,31 +971,42 @@ export default function App() {
 
   // Combine base cards with custom cards
   const allCards = useMemo(() => {
-    const baseCards = cardData.filter(card => {
+    const baseCardsArray = ensureArray(cardData);
+    const hiddenCardsArray = ensureArray(hiddenCards);
+    const hiddenSetsArray = ensureArray(hiddenSets);
+    const customCardsArray = ensureArray(customCards);
+    
+    const baseCards = baseCardsArray.filter(card => {
+      if (!card) return false;
       const id = getCardId(card);
-      return !hiddenCards.includes(id) && !hiddenSets.includes(card.setName);
+      return !hiddenCardsArray.includes(id) && !hiddenSetsArray.includes(card.setName);
     });
-    return [...baseCards, ...customCards];
+    return [...baseCards, ...customCardsArray];
   }, [customCards, hiddenCards, hiddenSets]);
 
   // Get all collection names (including empty ones)
   const allCollections = useMemo(() => {
-    const fromCards = [...new Set(allCards.map(c => c.setName))];
-    const combined = [...new Set([...fromCards, ...emptyCollections])];
+    const cardsArray = ensureArray(allCards);
+    const emptyArray = ensureArray(emptyCollections);
+    const fromCards = [...new Set(cardsArray.map(c => c.setName).filter(Boolean))];
+    const combined = [...new Set([...fromCards, ...emptyArray])];
     return combined.sort();
   }, [allCards, emptyCollections]);
 
   // Group cards by set
   const cardsBySet = useMemo(() => {
     const grouped = {};
+    const emptyArray = ensureArray(emptyCollections);
+    const cardsArray = ensureArray(allCards);
     
     // Initialize empty collections
-    emptyCollections.forEach(name => {
-      if (!grouped[name]) grouped[name] = [];
+    emptyArray.forEach(name => {
+      if (name && !grouped[name]) grouped[name] = [];
     });
     
     // Group cards
-    allCards.forEach(card => {
+    cardsArray.forEach(card => {
+      if (!card || !card.setName) return;
       if (!grouped[card.setName]) grouped[card.setName] = [];
       grouped[card.setName].push(card);
     });
