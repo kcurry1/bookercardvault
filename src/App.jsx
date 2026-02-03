@@ -749,18 +749,45 @@ const AddCardsModal = ({ isOpen, onClose, onAddCards, collections }) => {
 };
 
 // ===== FILTER/SORT MODAL =====
-const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, filterCollected, setFilterCollected }) => {
+const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, collectionSortBy, setCollectionSortBy, filterCollected, setFilterCollected }) => {
   if (!isOpen) return null;
+
+  const collectionSortOptions = [
+    { value: 'default', label: 'Default' },
+    { value: 'name-asc', label: 'A-Z' },
+    { value: 'name-desc', label: 'Z-A' },
+    { value: 'most-collected', label: 'Most Collected' },
+    { value: 'least-collected', label: 'Least Collected' },
+    { value: 'most-cards', label: 'Most Cards' },
+    { value: 'least-cards', label: 'Least Cards' }
+  ];
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-5">
           <h3 className="text-white text-lg font-bold mb-4">Filter & Sort</h3>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-slate-300 text-sm mb-2">Sort By</label>
+              <label className="block text-slate-300 text-sm mb-2">Sort Collections</label>
+              <div className="grid grid-cols-2 gap-2">
+                {collectionSortOptions.map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => setCollectionSortBy(option.value)}
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                      collectionSortBy === option.value ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 text-sm mb-2">Sort Cards</label>
               <div className="grid grid-cols-2 gap-2">
                 {['default', 'name', 'number', 'collected', 'custom'].map(option => (
                   <button
@@ -777,7 +804,7 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, filterCollected, 
             </div>
 
             <div>
-              <label className="block text-slate-300 text-sm mb-2">Filter</label>
+              <label className="block text-slate-300 text-sm mb-2">Filter Cards</label>
               <div className="grid grid-cols-3 gap-2">
                 {['all', 'collected', 'needed'].map(option => (
                   <button
@@ -817,6 +844,7 @@ export default function App() {
   const [saveError, setSaveError] = useState(false);
   const [activeCollection, setActiveCollection] = useState('all');
   const [sortBy, setSortBy] = useState('default');
+  const [collectionSortBy, setCollectionSortBy] = useState('default');
   const [filterCollected, setFilterCollected] = useState('all');
   const [editingCard, setEditingCard] = useState(null);
   const [editingCollection, setEditingCollection] = useState(null);
@@ -972,9 +1000,8 @@ export default function App() {
   const handleMoveCard = (card, direction) => {
     const setName = card.setName;
     
-    // Get cards in this set, maintaining current display order
+    // Get cards in this set
     const cardsInSet = cards.filter(c => c.setName === setName);
-    const otherCards = cards.filter(c => c.setName !== setName);
     
     // If we already have a custom order, use it to sort; otherwise use current order
     let orderedSetCards = [...cardsInSet];
@@ -997,13 +1024,11 @@ export default function App() {
     const reordered = [...orderedSetCards];
     [reordered[currentIndex], reordered[newIndex]] = [reordered[newIndex], reordered[currentIndex]];
     
-    // Save new order
+    // Save new order (just the order, not rebuilding the entire cards array)
     const newOrder = { ...customOrder, [setName]: reordered.map(c => c.id) };
-    const updated = [...otherCards, ...reordered];
     
-    setCards(updated);
     setCustomOrder(newOrder);
-    saveToFirebase(updated, newOrder);
+    saveToFirebase(cards, newOrder);
   };
 
   const collections = useMemo(() => {
@@ -1088,8 +1113,43 @@ export default function App() {
       }
       result[setName] = setCards;
     });
-    return result;
-  }, [collections, collectionTypes, activeCollection, filterCollected, searchQuery, sortBy, customOrder]);
+    
+    // Sort collections
+    let sortedEntries = Object.entries(result);
+    switch (collectionSortBy) {
+      case 'name-asc':
+        sortedEntries.sort((a, b) => a[0].localeCompare(b[0]));
+        break;
+      case 'name-desc':
+        sortedEntries.sort((a, b) => b[0].localeCompare(a[0]));
+        break;
+      case 'most-collected':
+        sortedEntries.sort((a, b) => {
+          const aCollected = a[1].filter(c => c.collected).length;
+          const bCollected = b[1].filter(c => c.collected).length;
+          return bCollected - aCollected;
+        });
+        break;
+      case 'least-collected':
+        sortedEntries.sort((a, b) => {
+          const aCollected = a[1].filter(c => c.collected).length;
+          const bCollected = b[1].filter(c => c.collected).length;
+          return aCollected - bCollected;
+        });
+        break;
+      case 'most-cards':
+        sortedEntries.sort((a, b) => b[1].length - a[1].length);
+        break;
+      case 'least-cards':
+        sortedEntries.sort((a, b) => a[1].length - b[1].length);
+        break;
+      default:
+        // Keep default order
+        break;
+    }
+    
+    return Object.fromEntries(sortedEntries);
+  }, [collections, collectionTypes, activeCollection, filterCollected, searchQuery, sortBy, collectionSortBy, customOrder]);
 
   const overallPercentage = stats.totalCards > 0 ? Math.round((stats.totalCollected / stats.totalCards) * 100) : 0;
 
@@ -1222,7 +1282,7 @@ export default function App() {
       <EditCollectionModal isOpen={!!editingCollection} onClose={() => setEditingCollection(null)} collectionName={editingCollection} onSave={handleSaveCollection} />
       <AddCollectionModal isOpen={showAddCollection} onClose={() => setShowAddCollection(false)} onAddCollection={handleAddCollection} />
       <AddCardsModal isOpen={showAddCards} onClose={() => setShowAddCards(false)} onAddCards={handleAddCards} collections={Object.keys(collections)} />
-      <FilterSortModal isOpen={showFilterSort} onClose={() => setShowFilterSort(false)} sortBy={sortBy} setSortBy={setSortBy} filterCollected={filterCollected} setFilterCollected={setFilterCollected} />
+      <FilterSortModal isOpen={showFilterSort} onClose={() => setShowFilterSort(false)} sortBy={sortBy} setSortBy={setSortBy} collectionSortBy={collectionSortBy} setCollectionSortBy={setCollectionSortBy} filterCollected={filterCollected} setFilterCollected={setFilterCollected} />
     </div>
   );
 }
