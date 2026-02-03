@@ -1128,7 +1128,6 @@ export default function App() {
             {Object.entries(COLLECTION_COLORS).map(([type, config]) => {
               const typeStats = stats.byType[type] || { collected: 0, total: 0 };
               const pct = typeStats.total > 0 ? Math.round((typeStats.collected / typeStats.total) * 100) : 0;
-              if (typeStats.total === 0) return null;
               return (
                 <button key={type} onClick={() => setActiveCollection(type)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === type ? `${config.bg} text-white` : 'bg-slate-700 text-slate-300'}`}>
                   {config.label} ({pct}%)
