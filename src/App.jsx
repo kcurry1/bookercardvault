@@ -1,17 +1,16 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
 import cardData from './data/bookerCards.json';
 
-// Collection color configuration
+// 5 Collection Types (Black Friday goes under Flagship)
 const COLLECTION_COLORS = {
-  flagship: { bg: 'bg-orange-500', text: 'text-orange-500', gradient: 'from-orange-500 to-amber-500' },
-  chrome: { bg: 'bg-blue-500', text: 'text-blue-500', gradient: 'from-blue-500 to-cyan-500' },
-  holiday: { bg: 'bg-green-500', text: 'text-green-500', gradient: 'from-green-500 to-emerald-500' },
-  sapphire: { bg: 'bg-purple-500', text: 'text-purple-500', gradient: 'from-purple-500 to-violet-500' },
-  midnight: { bg: 'bg-indigo-500', text: 'text-indigo-500', gradient: 'from-indigo-500 to-blue-900' },
-  blackfriday: { bg: 'bg-gray-800', text: 'text-gray-400', gradient: 'from-gray-800 to-gray-900' }
+  flagship: { bg: 'bg-orange-500', text: 'text-orange-500', gradient: 'from-orange-500 to-amber-500', label: 'Flagship' },
+  chrome: { bg: 'bg-blue-500', text: 'text-blue-500', gradient: 'from-blue-500 to-cyan-500', label: 'Chrome' },
+  holiday: { bg: 'bg-green-500', text: 'text-green-500', gradient: 'from-green-500 to-emerald-500', label: 'Holiday' },
+  sapphire: { bg: 'bg-purple-500', text: 'text-purple-500', gradient: 'from-purple-500 to-violet-500', label: 'Sapphire' },
+  midnight: { bg: 'bg-indigo-500', text: 'text-indigo-500', gradient: 'from-indigo-500 to-blue-900', label: 'Midnight' }
 };
 
 // Helper function to ensure array
@@ -19,10 +18,8 @@ const ensureArray = (val) => Array.isArray(val) ? val : [];
 
 // Flatten the nested cardData structure
 const flattenCardData = (data) => {
-  // If it's already an array, return it
   if (Array.isArray(data)) return data;
   
-  // If it has a "sets" property (nested structure), flatten it
   if (data && data.sets) {
     const flattened = [];
     Object.entries(data.sets).forEach(([setKey, setData]) => {
@@ -44,31 +41,27 @@ const flattenCardData = (data) => {
     return flattened;
   }
   
-  // If it has a "cards" property, return that
   if (data && data.cards) return ensureArray(data.cards);
-  
   return [];
 };
 
-// Get collection type from set key
+// Get collection type from set key (Black Friday → Flagship)
 const getCollectionTypeFromSetKey = (setKey) => {
   const key = (setKey || '').toLowerCase();
   if (key.includes('sapphire')) return 'sapphire';
   if (key.includes('midnight')) return 'midnight';
   if (key.includes('chrome')) return 'chrome';
   if (key.includes('holiday')) return 'holiday';
-  if (key.includes('black-friday') || key.includes('blackfriday')) return 'blackfriday';
   return 'flagship';
 };
 
-// Helper function to detect collection type from set name
+// Get collection type from set name
 const getCollectionType = (setName) => {
   const name = (setName || '').toLowerCase();
   if (name.includes('sapphire')) return 'sapphire';
   if (name.includes('midnight')) return 'midnight';
   if (name.includes('chrome')) return 'chrome';
   if (name.includes('holiday')) return 'holiday';
-  if (name.includes('black friday') || name.includes('blackfriday')) return 'blackfriday';
   return 'flagship';
 };
 
@@ -78,7 +71,6 @@ const generateId = () => `card_${Date.now()}_${Math.random().toString(36).substr
 // ===== LOGIN SCREEN =====
 const LoginScreen = ({ onLogin, loading }) => (
   <div className="min-h-screen bg-black relative overflow-hidden">
-    {/* Background Image */}
     <div className="absolute inset-0">
       <img 
         src="/booker-jersey.jpg"
@@ -89,17 +81,13 @@ const LoginScreen = ({ onLogin, loading }) => (
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
     </div>
     
-    {/* Content */}
     <div className="relative z-10 min-h-screen flex flex-col">
-      {/* Logo */}
       <div className="p-5">
         <span className="text-white text-xl font-black tracking-tight">MyCardVault</span>
       </div>
       
-      {/* Spacer */}
       <div className="flex-1" />
       
-      {/* Bottom content */}
       <div className="p-5 pb-8 space-y-5">
         <div>
           <h1 className="text-white text-4xl font-bold leading-tight">
@@ -112,7 +100,6 @@ const LoginScreen = ({ onLogin, loading }) => (
           </p>
         </div>
         
-        {/* Features */}
         <div className="flex gap-5 text-sm">
           {['258+ Cards', 'All Parallels', 'Free'].map((f, i) => (
             <div key={i} className="flex items-center gap-1.5 text-slate-300">
@@ -124,7 +111,6 @@ const LoginScreen = ({ onLogin, loading }) => (
           ))}
         </div>
         
-        {/* Sign In Button */}
         <button
           onClick={onLogin}
           disabled={loading}
@@ -149,34 +135,90 @@ const LoginScreen = ({ onLogin, loading }) => (
   </div>
 );
 
-// ===== SWIPEABLE CARD ITEM =====
-const SwipeableCard = ({ card, onDelete, onEdit, onDuplicate, onToggleCollected, onDragStart, onDragEnd, onDragOver, isDragging, collectionColor }) => {
-  const [swipeX, setSwipeX] = useState(0);
-  const [startX, setStartX] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const cardRef = useRef(null);
+// ===== THREE DOT MENU =====
+const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = React.useRef(null);
 
-  const handleTouchStart = (e) => {
-    if (e.target.closest('.drag-handle')) return;
-    setStartX(e.touches[0].clientX);
-    setIsSwiping(true);
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isSwiping) return;
-    const diff = e.touches[0].clientX - startX;
-    if (diff < 0) setSwipeX(Math.max(diff, -120));
-  };
-
-  const handleTouchEnd = () => {
-    setIsSwiping(false);
-    if (swipeX < -80) {
-      setSwipeX(-120);
-    } else {
-      setSwipeX(0);
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
-  };
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isOpen]);
 
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+        className="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center transition-colors"
+      >
+        <svg className="w-5 h-5 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="5" r="2"/>
+          <circle cx="12" cy="12" r="2"/>
+          <circle cx="12" cy="19" r="2"/>
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1 bg-slate-700 rounded-xl shadow-xl border border-slate-600 py-1 z-50 min-w-[140px]">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(); setIsOpen(false); }}
+            className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
+          >
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Edit
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDuplicate(); setIsOpen(false); }}
+            className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
+          >
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Duplicate
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); setIsOpen(false); }}
+            className="w-full px-4 py-2.5 text-left text-red-400 hover:bg-slate-600 flex items-center gap-3 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ===== DRAGGABLE CARD ITEM =====
+const CardItem = ({ 
+  card, 
+  onToggleCollected, 
+  onEdit, 
+  onDuplicate, 
+  onDelete,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+  isDragging,
+  isDragOver,
+  collectionColor 
+}) => {
   const rarityColor = card.serial === '1/1' ? 'bg-yellow-500' : 
                       card.serial?.includes('/5') ? 'bg-red-500' :
                       card.serial?.includes('/10') ? 'bg-orange-500' :
@@ -186,73 +228,56 @@ const SwipeableCard = ({ card, onDelete, onEdit, onDuplicate, onToggleCollected,
                       'bg-slate-600';
 
   return (
-    <div className="relative overflow-hidden rounded-xl mb-2">
-      {/* Delete/Edit/Duplicate Actions */}
-      <div className="absolute inset-y-0 right-0 flex">
-        <button onClick={() => onDuplicate(card)} className="w-14 bg-blue-500 flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-        </button>
-        <button onClick={() => onEdit(card)} className="w-14 bg-amber-500 flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-          </svg>
-        </button>
-        <button onClick={() => onDelete(card.id)} className="w-14 bg-red-500 flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, card)}
+      onDragOver={(e) => onDragOver(e, card)}
+      onDragEnd={onDragEnd}
+      onDrop={(e) => onDrop(e, card)}
+      className={`bg-slate-800 rounded-xl p-3 flex items-center gap-3 mb-2 cursor-grab active:cursor-grabbing transition-all duration-200 ${
+        isDragging ? 'opacity-40 scale-95' : ''
+      } ${isDragOver ? 'border-2 border-orange-500 border-dashed' : 'border-2 border-transparent'}`}
+    >
+      {/* Drag Handle */}
+      <div className="text-slate-500 touch-none">
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm8-12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
+        </svg>
       </div>
 
-      {/* Card Content */}
-      <div
-        ref={cardRef}
-        className={`relative bg-slate-800 p-3 flex items-center gap-3 transition-transform ${isDragging ? 'opacity-50 scale-95' : ''}`}
-        style={{ transform: `translateX(${swipeX}px)` }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        draggable
-        onDragStart={(e) => onDragStart(e, card)}
-        onDragEnd={onDragEnd}
-        onDragOver={(e) => onDragOver(e, card)}
+      {/* Color indicator */}
+      <div className={`w-1 h-10 rounded-full ${card.collected ? (collectionColor?.bg || rarityColor) : 'bg-slate-600'}`} />
+
+      {/* Card info - Just show card name, not collection name */}
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-medium truncate">
+          {card.cardName || card.parallel || 'Card'}
+        </p>
+        <p className="text-slate-400 text-sm truncate">
+          {card.cardNumber && `#${card.cardNumber}`} {card.serial && `• ${card.serial}`}
+        </p>
+      </div>
+
+      {/* Collected checkbox */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleCollected(card.id); }}
+        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+          card.collected ? 'bg-orange-500 border-orange-500' : 'border-slate-500'
+        }`}
       >
-        {/* Drag Handle */}
-        <div className="drag-handle cursor-grab active:cursor-grabbing touch-none">
-          <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm8-12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
+        {card.collected && (
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
-        </div>
+        )}
+      </button>
 
-        {/* Color indicator */}
-        <div className={`w-1 h-10 rounded-full ${card.collected ? (collectionColor?.bg || rarityColor) : 'bg-slate-600'}`} />
-
-        {/* Card info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-medium truncate">
-            {card.cardName || card.parallel || card.setName || 'Card'}
-          </p>
-          <p className="text-slate-400 text-sm truncate">
-            {card.cardNumber && `#${card.cardNumber}`} {card.serial && `• ${card.serial}`}
-          </p>
-        </div>
-
-        {/* Collected checkbox */}
-        <button
-          onClick={() => onToggleCollected(card.id)}
-          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-            card.collected ? 'bg-orange-500 border-orange-500' : 'border-slate-500'
-          }`}
-        >
-          {card.collected && (
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
-          )}
-        </button>
-      </div>
+      {/* Three dot menu */}
+      <ThreeDotMenu
+        onEdit={() => onEdit(card)}
+        onDuplicate={() => onDuplicate(card)}
+        onDelete={() => onDelete(card.id)}
+      />
     </div>
   );
 };
@@ -269,15 +294,17 @@ const CollectionSection = ({
   onEditCollection,
   onDeleteCollection,
   onDragStart,
-  onDragEnd,
   onDragOver,
-  draggedCard
+  onDragEnd,
+  onDrop,
+  draggedCard,
+  dragOverCard
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const colors = COLLECTION_COLORS[collectionType] || COLLECTION_COLORS.flagship;
   const collected = cards.filter(c => c.collected).length;
   const total = cards.length;
-  const progress = total > 0 ? Math.round((collected / total) * 100) : 0;
+  const percentage = total > 0 ? Math.round((collected / total) * 100) : 0;
 
   return (
     <div className="mb-4">
@@ -288,15 +315,17 @@ const CollectionSection = ({
       >
         <div className={`w-1.5 h-10 rounded-full ${colors.bg}`} />
         <div className="flex-1 min-w-0">
+          {/* Just show set name without collection type prefix */}
           <p className="text-white font-semibold truncate">{setName}</p>
           <div className="flex items-center gap-2 mt-1">
             <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
               <div 
                 className={`h-full bg-gradient-to-r ${colors.gradient} transition-all duration-500`}
-                style={{ width: `${progress}%` }}
+                style={{ width: `${percentage}%` }}
               />
             </div>
-            <span className="text-slate-400 text-xs">{collected}/{total}</span>
+            <span className="text-slate-400 text-xs font-medium">{percentage}%</span>
+            <span className="text-slate-500 text-xs">({collected}/{total})</span>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -329,17 +358,19 @@ const CollectionSection = ({
       {isExpanded && (
         <div className="mt-2 ml-4">
           {cards.map(card => (
-            <SwipeableCard
+            <CardItem
               key={card.id}
               card={card}
-              onDelete={onDeleteCard}
+              onToggleCollected={onToggleCollected}
               onEdit={onEditCard}
               onDuplicate={onDuplicateCard}
-              onToggleCollected={onToggleCollected}
+              onDelete={onDeleteCard}
               onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
               onDragOver={onDragOver}
+              onDragEnd={onDragEnd}
+              onDrop={onDrop}
               isDragging={draggedCard?.id === card.id}
+              isDragOver={dragOverCard?.id === card.id}
               collectionColor={colors}
             />
           ))}
@@ -511,7 +542,7 @@ const EditCollectionModal = ({ isOpen, onClose, collectionName, onSave }) => {
 };
 
 // ===== ADD COLLECTION MODAL =====
-const AddCollectionModal = ({ isOpen, onClose, onAddCollection, existingCollections }) => {
+const AddCollectionModal = ({ isOpen, onClose, onAddCollection }) => {
   const [collectionName, setCollectionName] = useState('');
   const [collectionType, setCollectionType] = useState('flagship');
 
@@ -544,7 +575,7 @@ const AddCollectionModal = ({ isOpen, onClose, onAddCollection, existingCollecti
                 type="text"
                 value={collectionName}
                 onChange={(e) => setCollectionName(e.target.value)}
-                placeholder="e.g., Sapphire - Base Card"
+                placeholder="e.g., Base Card, 8-Bit Ballers"
                 className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
                 autoFocus
               />
@@ -561,7 +592,6 @@ const AddCollectionModal = ({ isOpen, onClose, onAddCollection, existingCollecti
                 <option value="holiday">Holiday</option>
                 <option value="sapphire">Sapphire</option>
                 <option value="midnight">Midnight</option>
-                <option value="blackfriday">Black Friday</option>
               </select>
             </div>
             <div className="flex gap-3">
@@ -777,43 +807,26 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, filterCollected, 
 
 // ===== MAIN APP =====
 export default function App() {
-  // Auth state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  // Data state
   const [cards, setCards] = useState([]);
   const [customOrder, setCustomOrder] = useState({});
   const [hiddenCards, setHiddenCards] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [saveError, setSaveError] = useState(false);
-
-  // UI state
   const [activeCollection, setActiveCollection] = useState('all');
   const [sortBy, setSortBy] = useState('default');
   const [filterCollected, setFilterCollected] = useState('all');
   const [draggedCard, setDraggedCard] = useState(null);
-
-  // Modal state
+  const [dragOverCard, setDragOverCard] = useState(null);
   const [editingCard, setEditingCard] = useState(null);
   const [editingCollection, setEditingCollection] = useState(null);
   const [showAddCollection, setShowAddCollection] = useState(false);
   const [showAddCards, setShowAddCards] = useState(false);
   const [showFilterSort, setShowFilterSort] = useState(false);
 
-  // Auth effect
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Initialize default cards from JSON
   const defaultCards = useMemo(() => flattenCardData(cardData), []);
 
-  // Save to Firebase
   const saveToFirebase = useCallback(async (newCards, newCustomOrder = customOrder, newHiddenCards = hiddenCards) => {
     if (!user) return;
     setSyncing(true);
@@ -833,16 +846,21 @@ export default function App() {
     }
   }, [user, customOrder, hiddenCards]);
 
-  // Firebase sync effect
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (!user) return;
-
     const docRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         const loadedCards = ensureArray(data.cards);
-        // If user has no cards saved, initialize with default cards
         if (loadedCards.length === 0 && defaultCards.length > 0) {
           setCards(defaultCards);
           saveToFirebase(defaultCards, {}, []);
@@ -852,18 +870,15 @@ export default function App() {
         setCustomOrder(data.customOrder || {});
         setHiddenCards(ensureArray(data.hiddenCards));
       } else {
-        // New user - initialize with default cards
         if (defaultCards.length > 0) {
           setCards(defaultCards);
           saveToFirebase(defaultCards, {}, []);
         }
       }
     });
-
     return () => unsubscribe();
   }, [user, defaultCards, saveToFirebase]);
 
-  // Auth handlers
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
@@ -880,11 +895,8 @@ export default function App() {
     }
   };
 
-  // Card handlers
   const handleToggleCollected = (cardId) => {
-    const updated = cards.map(c => 
-      c.id === cardId ? { ...c, collected: !c.collected } : c
-    );
+    const updated = cards.map(c => c.id === cardId ? { ...c, collected: !c.collected } : c);
     setCards(updated);
     saveToFirebase(updated);
   };
@@ -898,9 +910,7 @@ export default function App() {
     saveToFirebase(updated, customOrder, newHidden);
   };
 
-  const handleEditCard = (card) => {
-    setEditingCard(card);
-  };
+  const handleEditCard = (card) => setEditingCard(card);
 
   const handleSaveCard = (updatedCard) => {
     const updated = cards.map(c => c.id === updatedCard.id ? updatedCard : c);
@@ -910,33 +920,24 @@ export default function App() {
   };
 
   const handleDuplicateCard = (card) => {
-    const newCard = {
-      ...card,
-      id: generateId(),
-      collected: false
-    };
+    const newCard = { ...card, id: generateId(), collected: false };
     const updated = [...cards, newCard];
     setCards(updated);
     saveToFirebase(updated);
   };
 
-  // Collection handlers
-  const handleEditCollection = (collectionName) => {
-    setEditingCollection(collectionName);
-  };
+  const handleEditCollection = (name) => setEditingCollection(name);
 
   const handleSaveCollection = (oldName, newName) => {
-    const updated = cards.map(c => 
-      c.setName === oldName ? { ...c, setName: newName } : c
-    );
+    const updated = cards.map(c => c.setName === oldName ? { ...c, setName: newName } : c);
     setCards(updated);
     saveToFirebase(updated);
     setEditingCollection(null);
   };
 
-  const handleDeleteCollection = (collectionName) => {
-    const toDelete = cards.filter(c => c.setName === collectionName);
-    const updated = cards.filter(c => c.setName !== collectionName);
+  const handleDeleteCollection = (name) => {
+    const toDelete = cards.filter(c => c.setName === name);
+    const updated = cards.filter(c => c.setName !== name);
     const newHidden = [...hiddenCards, ...toDelete];
     setCards(updated);
     setHiddenCards(newHidden);
@@ -944,17 +945,7 @@ export default function App() {
   };
 
   const handleAddCollection = (name, type) => {
-    // Just add an empty collection entry
-    const newCard = {
-      id: generateId(),
-      setName: name,
-      cardName: 'Base',
-      cardNumber: '',
-      parallel: '',
-      serial: '',
-      collected: false,
-      collectionType: type
-    };
+    const newCard = { id: generateId(), setName: name, cardName: 'Base', cardNumber: '', parallel: '', serial: '', collected: false, collectionType: type };
     const updated = [...cards, newCard];
     setCards(updated);
     saveToFirebase(updated);
@@ -963,7 +954,6 @@ export default function App() {
   const handleAddCards = (collectionName, newCards) => {
     const existingCard = cards.find(c => c.setName === collectionName);
     const collectionType = existingCard?.collectionType || getCollectionType(collectionName);
-    
     const cardsToAdd = newCards.map(card => ({
       id: generateId(),
       setName: collectionName,
@@ -974,46 +964,51 @@ export default function App() {
       collected: false,
       collectionType
     }));
-    
     const updated = [...cards, ...cardsToAdd];
     setCards(updated);
     saveToFirebase(updated);
   };
 
-  // Drag handlers
   const handleDragStart = (e, card) => {
     setDraggedCard(card);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', card.id);
+  };
+
+  const handleDragOver = (e, card) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!draggedCard || draggedCard.id === card.id || draggedCard.setName !== card.setName) return;
+    setDragOverCard(card);
   };
 
   const handleDragEnd = () => {
     setDraggedCard(null);
+    setDragOverCard(null);
   };
 
-  const handleDragOver = (e, targetCard) => {
+  const handleDrop = (e, targetCard) => {
     e.preventDefault();
-    if (!draggedCard || draggedCard.id === targetCard.id) return;
-    if (draggedCard.setName !== targetCard.setName) return;
-
-    const setCards = cards.filter(c => c.setName === draggedCard.setName);
-    const otherCards = cards.filter(c => c.setName !== draggedCard.setName);
-    
+    if (!draggedCard || draggedCard.id === targetCard.id || draggedCard.setName !== targetCard.setName) {
+      handleDragEnd();
+      return;
+    }
+    const setName = draggedCard.setName;
+    const setCards = cards.filter(c => c.setName === setName);
+    const otherCards = cards.filter(c => c.setName !== setName);
     const dragIndex = setCards.findIndex(c => c.id === draggedCard.id);
     const targetIndex = setCards.findIndex(c => c.id === targetCard.id);
-    
     const reordered = [...setCards];
     reordered.splice(dragIndex, 1);
     reordered.splice(targetIndex, 0, draggedCard);
-    
-    const newOrder = { ...customOrder, [draggedCard.setName]: reordered.map(c => c.id) };
+    const newOrder = { ...customOrder, [setName]: reordered.map(c => c.id) };
     const updated = [...otherCards, ...reordered];
-    
     setCards(updated);
     setCustomOrder(newOrder);
     saveToFirebase(updated, newOrder);
+    handleDragEnd();
   };
 
-  // Computed data
   const collections = useMemo(() => {
     const sets = {};
     cards.forEach(card => {
@@ -1034,10 +1029,9 @@ export default function App() {
   }, [collections]);
 
   const stats = useMemo(() => {
-    const byType = {};
+    const byType = { flagship: { collected: 0, total: 0 }, chrome: { collected: 0, total: 0 }, holiday: { collected: 0, total: 0 }, sapphire: { collected: 0, total: 0 }, midnight: { collected: 0, total: 0 } };
     let totalCollected = 0;
     let totalCards = 0;
-
     cards.forEach(card => {
       const type = card.collectionType || getCollectionType(card.setName);
       if (!byType[type]) byType[type] = { collected: 0, total: 0 };
@@ -1048,48 +1042,26 @@ export default function App() {
         totalCollected++;
       }
     });
-
     return { byType, totalCollected, totalCards };
   }, [cards]);
 
   const filteredCollections = useMemo(() => {
     let result = { ...collections };
-
-    // Filter by active collection type
     if (activeCollection !== 'all') {
-      result = Object.fromEntries(
-        Object.entries(result).filter(([setName]) => 
-          collectionTypes[setName] === activeCollection
-        )
-      );
+      result = Object.fromEntries(Object.entries(result).filter(([setName]) => collectionTypes[setName] === activeCollection));
     }
-
-    // Apply collected filter
     if (filterCollected !== 'all') {
       Object.keys(result).forEach(setName => {
-        result[setName] = result[setName].filter(card =>
-          filterCollected === 'collected' ? card.collected : !card.collected
-        );
+        result[setName] = result[setName].filter(card => filterCollected === 'collected' ? card.collected : !card.collected);
       });
-      // Remove empty collections
-      result = Object.fromEntries(
-        Object.entries(result).filter(([_, cards]) => cards.length > 0)
-      );
+      result = Object.fromEntries(Object.entries(result).filter(([_, cards]) => cards.length > 0));
     }
-
-    // Apply sorting
     Object.keys(result).forEach(setName => {
       const setCards = [...result[setName]];
       switch (sortBy) {
-        case 'name':
-          setCards.sort((a, b) => (a.cardName || '').localeCompare(b.cardName || ''));
-          break;
-        case 'number':
-          setCards.sort((a, b) => (a.cardNumber || '').localeCompare(b.cardNumber || '', undefined, { numeric: true }));
-          break;
-        case 'collected':
-          setCards.sort((a, b) => (b.collected ? 1 : 0) - (a.collected ? 1 : 0));
-          break;
+        case 'name': setCards.sort((a, b) => (a.cardName || '').localeCompare(b.cardName || '')); break;
+        case 'number': setCards.sort((a, b) => (a.cardNumber || '').localeCompare(b.cardNumber || '', undefined, { numeric: true })); break;
+        case 'collected': setCards.sort((a, b) => (b.collected ? 1 : 0) - (a.collected ? 1 : 0)); break;
         case 'custom':
           if (customOrder[setName]) {
             const order = customOrder[setName];
@@ -1100,18 +1072,15 @@ export default function App() {
             });
           }
           break;
+        default: break;
       }
       result[setName] = setCards;
     });
-
     return result;
   }, [collections, collectionTypes, activeCollection, filterCollected, sortBy, customOrder]);
 
-  const overallProgress = stats.totalCards > 0 
-    ? Math.round((stats.totalCollected / stats.totalCards) * 100) 
-    : 0;
+  const overallPercentage = stats.totalCards > 0 ? Math.round((stats.totalCollected / stats.totalCards) * 100) : 0;
 
-  // Loading state
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -1120,36 +1089,22 @@ export default function App() {
     );
   }
 
-  // Login screen
-  if (!user) {
-    return <LoginScreen onLogin={handleLogin} loading={authLoading} />;
-  }
+  if (!user) return <LoginScreen onLogin={handleLogin} loading={authLoading} />;
 
-  // Main app
   return (
     <div className="min-h-screen bg-slate-900 pb-24">
-      {/* Header */}
       <div className="bg-gradient-to-b from-orange-500/20 to-transparent px-4 pt-4 pb-2">
         <div className="flex items-center justify-between mb-4">
           <span className="text-white text-lg font-black tracking-tight">MyCardVault</span>
           <div className="flex items-center gap-2">
-            {syncing && (
-              <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-            )}
-            {saveError && (
-              <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            )}
+            {syncing && <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />}
+            {saveError && <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
             <button onClick={handleLogout} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             </button>
           </div>
         </div>
 
-        {/* Progress Card */}
         <div className="bg-slate-800/80 backdrop-blur rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -1157,41 +1112,26 @@ export default function App() {
               <p className="text-slate-400 text-sm">2025-26 Topps Collection</p>
             </div>
             <div className="text-right">
-              <p className="text-orange-500 font-bold text-2xl">{stats.totalCollected}</p>
-              <p className="text-slate-500 text-xs">of {stats.totalCards}</p>
+              <p className="text-orange-500 font-bold text-3xl">{overallPercentage}%</p>
+              <p className="text-slate-500 text-xs">{stats.totalCollected} of {stats.totalCards}</p>
             </div>
           </div>
-          <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden mb-3">
-            <div 
-              className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500" 
-              style={{ width: `${overallProgress}%` }} 
-            />
+          
+          <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden mb-4">
+            <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500" style={{ width: `${overallPercentage}%` }} />
           </div>
 
-          {/* Collection Type Pills */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <button
-              onClick={() => setActiveCollection('all')}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                activeCollection === 'all' 
-                  ? 'bg-orange-500 text-white' 
-                  : 'bg-slate-700 text-slate-300'
-              }`}
-            >
-              All ({stats.totalCards})
+            <button onClick={() => setActiveCollection('all')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === 'all' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
+              All ({overallPercentage}%)
             </button>
-            {Object.entries(stats.byType).map(([type, { collected, total }]) => {
-              const colors = COLLECTION_COLORS[type] || COLLECTION_COLORS.flagship;
-              const isActive = activeCollection === type;
+            {Object.entries(COLLECTION_COLORS).map(([type, config]) => {
+              const typeStats = stats.byType[type] || { collected: 0, total: 0 };
+              const pct = typeStats.total > 0 ? Math.round((typeStats.collected / typeStats.total) * 100) : 0;
+              if (typeStats.total === 0) return null;
               return (
-                <button
-                  key={type}
-                  onClick={() => setActiveCollection(type)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                    isActive ? `${colors.bg} text-white` : 'bg-slate-700 text-slate-300'
-                  }`}
-                >
-                  {type.charAt(0).toUpperCase() + type.slice(1)} ({collected}/{total})
+                <button key={type} onClick={() => setActiveCollection(type)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === type ? `${config.bg} text-white` : 'bg-slate-700 text-slate-300'}`}>
+                  {config.label} ({pct}%)
                 </button>
               );
             })}
@@ -1199,39 +1139,22 @@ export default function App() {
         </div>
       </div>
 
-      {/* Action Bar */}
       <div className="px-4 py-3 flex items-center gap-2">
-        <button
-          onClick={() => setShowAddCollection(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+        <button onClick={() => setShowAddCollection(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           Collection
         </button>
-        <button
-          onClick={() => setShowAddCards(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+        <button onClick={() => setShowAddCards(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           Cards
         </button>
         <div className="flex-1" />
-        <button
-          onClick={() => setShowFilterSort(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-          </svg>
+        <button onClick={() => setShowFilterSort(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
           Filter
         </button>
       </div>
 
-      {/* Collections List */}
       <div className="px-4">
         {Object.entries(filteredCollections).map(([setName, setCards]) => (
           <CollectionSection
@@ -1246,62 +1169,28 @@ export default function App() {
             onEditCollection={handleEditCollection}
             onDeleteCollection={handleDeleteCollection}
             onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
             onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDrop={handleDrop}
             draggedCard={draggedCard}
+            dragOverCard={dragOverCard}
           />
         ))}
-
         {Object.keys(filteredCollections).length === 0 && (
           <div className="text-center py-12">
             <p className="text-slate-500">No collections found</p>
-            <button
-              onClick={() => setShowAddCollection(true)}
-              className="mt-4 px-4 py-2 rounded-xl bg-orange-500 text-white font-medium"
-            >
+            <button onClick={() => setShowAddCollection(true)} className="mt-4 px-4 py-2 rounded-xl bg-orange-500 text-white font-medium">
               Add Your First Collection
             </button>
           </div>
         )}
       </div>
 
-      {/* Modals */}
-      <EditCardModal
-        isOpen={!!editingCard}
-        onClose={() => setEditingCard(null)}
-        card={editingCard}
-        onSave={handleSaveCard}
-      />
-
-      <EditCollectionModal
-        isOpen={!!editingCollection}
-        onClose={() => setEditingCollection(null)}
-        collectionName={editingCollection}
-        onSave={handleSaveCollection}
-      />
-
-      <AddCollectionModal
-        isOpen={showAddCollection}
-        onClose={() => setShowAddCollection(false)}
-        onAddCollection={handleAddCollection}
-        existingCollections={Object.keys(collections)}
-      />
-
-      <AddCardsModal
-        isOpen={showAddCards}
-        onClose={() => setShowAddCards(false)}
-        onAddCards={handleAddCards}
-        collections={Object.keys(collections)}
-      />
-
-      <FilterSortModal
-        isOpen={showFilterSort}
-        onClose={() => setShowFilterSort(false)}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
-        filterCollected={filterCollected}
-        setFilterCollected={setFilterCollected}
-      />
+      <EditCardModal isOpen={!!editingCard} onClose={() => setEditingCard(null)} card={editingCard} onSave={handleSaveCard} />
+      <EditCollectionModal isOpen={!!editingCollection} onClose={() => setEditingCollection(null)} collectionName={editingCollection} onSave={handleSaveCollection} />
+      <AddCollectionModal isOpen={showAddCollection} onClose={() => setShowAddCollection(false)} onAddCollection={handleAddCollection} />
+      <AddCardsModal isOpen={showAddCards} onClose={() => setShowAddCards(false)} onAddCards={handleAddCards} collections={Object.keys(collections)} />
+      <FilterSortModal isOpen={showFilterSort} onClose={() => setShowFilterSort(false)} sortBy={sortBy} setSortBy={setSortBy} filterCollected={filterCollected} setFilterCollected={setFilterCollected} />
     </div>
   );
 }
