@@ -1,22 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
-
-// Firebase Configuration - Replace with your own
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { auth, googleProvider, db } from './firebase';
+import cardData from './data/bookerCards.json';
 
 // Collection color configuration
 const COLLECTION_COLORS = {
@@ -30,6 +16,50 @@ const COLLECTION_COLORS = {
 
 // Helper function to ensure array
 const ensureArray = (val) => Array.isArray(val) ? val : [];
+
+// Flatten the nested cardData structure
+const flattenCardData = (data) => {
+  // If it's already an array, return it
+  if (Array.isArray(data)) return data;
+  
+  // If it has a "sets" property (nested structure), flatten it
+  if (data && data.sets) {
+    const flattened = [];
+    Object.entries(data.sets).forEach(([setKey, setData]) => {
+      const cards = ensureArray(setData.cards || []);
+      cards.forEach((card, index) => {
+        flattened.push({
+          id: card.id || `${setKey}_${index}`,
+          setName: setData.name || setKey,
+          cardName: card.cardName || card.parallel || card.name || 'Card',
+          cardNumber: card.cardNumber || card.number || '',
+          parallel: card.parallel || '',
+          serial: card.serial || card.numbered || '',
+          source: card.source || '',
+          collected: false,
+          collectionType: getCollectionTypeFromSetKey(setKey)
+        });
+      });
+    });
+    return flattened;
+  }
+  
+  // If it has a "cards" property, return that
+  if (data && data.cards) return ensureArray(data.cards);
+  
+  return [];
+};
+
+// Get collection type from set key
+const getCollectionTypeFromSetKey = (setKey) => {
+  const key = (setKey || '').toLowerCase();
+  if (key.includes('sapphire')) return 'sapphire';
+  if (key.includes('midnight')) return 'midnight';
+  if (key.includes('chrome')) return 'chrome';
+  if (key.includes('holiday')) return 'holiday';
+  if (key.includes('black-friday') || key.includes('blackfriday')) return 'blackfriday';
+  return 'flagship';
+};
 
 // Helper function to detect collection type from set name
 const getCollectionType = (setName) => {
@@ -780,22 +810,8 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Firebase sync effect
-  useEffect(() => {
-    if (!user) return;
-
-    const docRef = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setCards(ensureArray(data.cards));
-        setCustomOrder(data.customOrder || {});
-        setHiddenCards(ensureArray(data.hiddenCards));
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user]);
+  // Initialize default cards from JSON
+  const defaultCards = useMemo(() => flattenCardData(cardData), []);
 
   // Save to Firebase
   const saveToFirebase = useCallback(async (newCards, newCustomOrder = customOrder, newHiddenCards = hiddenCards) => {
@@ -817,11 +833,40 @@ export default function App() {
     }
   }, [user, customOrder, hiddenCards]);
 
+  // Firebase sync effect
+  useEffect(() => {
+    if (!user) return;
+
+    const docRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const loadedCards = ensureArray(data.cards);
+        // If user has no cards saved, initialize with default cards
+        if (loadedCards.length === 0 && defaultCards.length > 0) {
+          setCards(defaultCards);
+          saveToFirebase(defaultCards, {}, []);
+        } else {
+          setCards(loadedCards);
+        }
+        setCustomOrder(data.customOrder || {});
+        setHiddenCards(ensureArray(data.hiddenCards));
+      } else {
+        // New user - initialize with default cards
+        if (defaultCards.length > 0) {
+          setCards(defaultCards);
+          saveToFirebase(defaultCards, {}, []);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, defaultCards, saveToFirebase]);
+
   // Auth handlers
   const handleLogin = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error('Login error:', error);
     }
