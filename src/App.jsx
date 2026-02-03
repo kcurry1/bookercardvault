@@ -971,19 +971,33 @@ export default function App() {
 
   const handleMoveCard = (card, direction) => {
     const setName = card.setName;
-    const setCards = cards.filter(c => c.setName === setName);
-    const otherCards = cards.filter(c => c.setName !== setName);
-    const currentIndex = setCards.findIndex(c => c.id === card.id);
     
+    // Get cards in this set, maintaining current display order
+    const cardsInSet = cards.filter(c => c.setName === setName);
+    const otherCards = cards.filter(c => c.setName !== setName);
+    
+    // If we already have a custom order, use it to sort; otherwise use current order
+    let orderedSetCards = [...cardsInSet];
+    if (customOrder[setName]) {
+      const order = customOrder[setName];
+      orderedSetCards.sort((a, b) => {
+        const aIndex = order.indexOf(a.id);
+        const bIndex = order.indexOf(b.id);
+        return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+      });
+    }
+    
+    const currentIndex = orderedSetCards.findIndex(c => c.id === card.id);
     if (currentIndex === -1) return;
     
     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= setCards.length) return;
+    if (newIndex < 0 || newIndex >= orderedSetCards.length) return;
     
     // Swap the cards
-    const reordered = [...setCards];
+    const reordered = [...orderedSetCards];
     [reordered[currentIndex], reordered[newIndex]] = [reordered[newIndex], reordered[currentIndex]];
     
+    // Save new order
     const newOrder = { ...customOrder, [setName]: reordered.map(c => c.id) };
     const updated = [...otherCards, ...reordered];
     
@@ -1060,6 +1074,8 @@ export default function App() {
         case 'number': setCards.sort((a, b) => (a.cardNumber || '').localeCompare(b.cardNumber || '', undefined, { numeric: true })); break;
         case 'collected': setCards.sort((a, b) => (b.collected ? 1 : 0) - (a.collected ? 1 : 0)); break;
         case 'custom':
+        default:
+          // Apply custom order if it exists (for both 'custom' and 'default')
           if (customOrder[setName]) {
             const order = customOrder[setName];
             setCards.sort((a, b) => {
@@ -1069,7 +1085,6 @@ export default function App() {
             });
           }
           break;
-        default: break;
       }
       result[setName] = setCards;
     });
