@@ -136,7 +136,7 @@ const LoginScreen = ({ onLogin, loading }) => (
 );
 
 // ===== THREE DOT MENU =====
-const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete }) => {
+const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = React.useRef(null);
 
@@ -171,6 +171,28 @@ const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete }) => {
       
       {isOpen && (
         <div className="absolute right-0 top-full mt-1 bg-slate-700 rounded-xl shadow-xl border border-slate-600 py-1 z-50 min-w-[140px]">
+          {canMoveUp && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onMoveUp(); setIsOpen(false); }}
+              className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
+            >
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+              Move Up
+            </button>
+          )}
+          {canMoveDown && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onMoveDown(); setIsOpen(false); }}
+              className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
+            >
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              Move Down
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(); setIsOpen(false); }}
             className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
@@ -204,19 +226,17 @@ const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete }) => {
   );
 };
 
-// ===== DRAGGABLE CARD ITEM =====
+// ===== CARD ITEM =====
 const CardItem = ({ 
   card, 
   onToggleCollected, 
   onEdit, 
   onDuplicate, 
   onDelete,
-  onDragStart,
-  onDragOver,
-  onDragEnd,
-  onDrop,
-  isDragging,
-  isDragOver,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
   collectionColor 
 }) => {
   const rarityColor = card.serial === '1/1' ? 'bg-yellow-500' : 
@@ -228,23 +248,7 @@ const CardItem = ({
                       'bg-slate-600';
 
   return (
-    <div
-      draggable
-      onDragStart={(e) => onDragStart(e, card)}
-      onDragOver={(e) => onDragOver(e, card)}
-      onDragEnd={onDragEnd}
-      onDrop={(e) => onDrop(e, card)}
-      className={`bg-slate-800 rounded-xl p-3 flex items-center gap-3 mb-2 cursor-grab active:cursor-grabbing transition-all duration-200 ${
-        isDragging ? 'opacity-40 scale-95' : ''
-      } ${isDragOver ? 'border-2 border-orange-500 border-dashed' : 'border-2 border-transparent'}`}
-    >
-      {/* Drag Handle */}
-      <div className="text-slate-500 touch-none">
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm8-12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
-        </svg>
-      </div>
-
+    <div className="bg-slate-800 rounded-xl p-3 flex items-center gap-3 mb-2 transition-all duration-200 border-2 border-transparent">
       {/* Color indicator */}
       <div className={`w-1 h-10 rounded-full ${card.collected ? (collectionColor?.bg || rarityColor) : 'bg-slate-600'}`} />
 
@@ -277,6 +281,10 @@ const CardItem = ({
         onEdit={() => onEdit(card)}
         onDuplicate={() => onDuplicate(card)}
         onDelete={() => onDelete(card.id)}
+        onMoveUp={() => onMoveUp(card)}
+        onMoveDown={() => onMoveDown(card)}
+        canMoveUp={canMoveUp}
+        canMoveDown={canMoveDown}
       />
     </div>
   );
@@ -293,12 +301,7 @@ const CollectionSection = ({
   onToggleCollected,
   onEditCollection,
   onDeleteCollection,
-  onDragStart,
-  onDragOver,
-  onDragEnd,
-  onDrop,
-  draggedCard,
-  dragOverCard
+  onMoveCard
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const colors = COLLECTION_COLORS[collectionType] || COLLECTION_COLORS.flagship;
@@ -357,7 +360,7 @@ const CollectionSection = ({
       {/* Expanded Cards */}
       {isExpanded && (
         <div className="mt-2 ml-4">
-          {cards.map(card => (
+          {cards.map((card, index) => (
             <CardItem
               key={card.id}
               card={card}
@@ -365,12 +368,10 @@ const CollectionSection = ({
               onEdit={onEditCard}
               onDuplicate={onDuplicateCard}
               onDelete={onDeleteCard}
-              onDragStart={onDragStart}
-              onDragOver={onDragOver}
-              onDragEnd={onDragEnd}
-              onDrop={onDrop}
-              isDragging={draggedCard?.id === card.id}
-              isDragOver={dragOverCard?.id === card.id}
+              onMoveUp={(c) => onMoveCard(c, 'up')}
+              onMoveDown={(c) => onMoveCard(c, 'down')}
+              canMoveUp={index > 0}
+              canMoveDown={index < cards.length - 1}
               collectionColor={colors}
             />
           ))}
@@ -817,8 +818,6 @@ export default function App() {
   const [activeCollection, setActiveCollection] = useState('all');
   const [sortBy, setSortBy] = useState('default');
   const [filterCollected, setFilterCollected] = useState('all');
-  const [draggedCard, setDraggedCard] = useState(null);
-  const [dragOverCard, setDragOverCard] = useState(null);
   const [editingCard, setEditingCard] = useState(null);
   const [editingCollection, setEditingCollection] = useState(null);
   const [showAddCollection, setShowAddCollection] = useState(false);
@@ -970,44 +969,27 @@ export default function App() {
     saveToFirebase(updated);
   };
 
-  const handleDragStart = (e, card) => {
-    setDraggedCard(card);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', card.id);
-  };
-
-  const handleDragOver = (e, card) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (!draggedCard || draggedCard.id === card.id || draggedCard.setName !== card.setName) return;
-    setDragOverCard(card);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedCard(null);
-    setDragOverCard(null);
-  };
-
-  const handleDrop = (e, targetCard) => {
-    e.preventDefault();
-    if (!draggedCard || draggedCard.id === targetCard.id || draggedCard.setName !== targetCard.setName) {
-      handleDragEnd();
-      return;
-    }
-    const setName = draggedCard.setName;
+  const handleMoveCard = (card, direction) => {
+    const setName = card.setName;
     const setCards = cards.filter(c => c.setName === setName);
     const otherCards = cards.filter(c => c.setName !== setName);
-    const dragIndex = setCards.findIndex(c => c.id === draggedCard.id);
-    const targetIndex = setCards.findIndex(c => c.id === targetCard.id);
+    const currentIndex = setCards.findIndex(c => c.id === card.id);
+    
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= setCards.length) return;
+    
+    // Swap the cards
     const reordered = [...setCards];
-    reordered.splice(dragIndex, 1);
-    reordered.splice(targetIndex, 0, draggedCard);
+    [reordered[currentIndex], reordered[newIndex]] = [reordered[newIndex], reordered[currentIndex]];
+    
     const newOrder = { ...customOrder, [setName]: reordered.map(c => c.id) };
     const updated = [...otherCards, ...reordered];
+    
     setCards(updated);
     setCustomOrder(newOrder);
     saveToFirebase(updated, newOrder);
-    handleDragEnd();
   };
 
   const collections = useMemo(() => {
@@ -1208,12 +1190,7 @@ export default function App() {
             onToggleCollected={handleToggleCollected}
             onEditCollection={handleEditCollection}
             onDeleteCollection={handleDeleteCollection}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-            onDrop={handleDrop}
-            draggedCard={draggedCard}
-            dragOverCard={dragOverCard}
+            onMoveCard={handleMoveCard}
           />
         ))}
         {Object.keys(filteredCollections).length === 0 && (
