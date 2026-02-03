@@ -824,6 +824,7 @@ export default function App() {
   const [showAddCollection, setShowAddCollection] = useState(false);
   const [showAddCards, setShowAddCards] = useState(false);
   const [showFilterSort, setShowFilterSort] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const defaultCards = useMemo(() => flattenCardData(cardData), []);
 
@@ -1056,6 +1057,20 @@ export default function App() {
       });
       result = Object.fromEntries(Object.entries(result).filter(([_, cards]) => cards.length > 0));
     }
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      Object.keys(result).forEach(setName => {
+        result[setName] = result[setName].filter(card => 
+          (card.cardName || '').toLowerCase().includes(query) ||
+          (card.setName || '').toLowerCase().includes(query) ||
+          (card.parallel || '').toLowerCase().includes(query) ||
+          (card.cardNumber || '').toLowerCase().includes(query) ||
+          (card.serial || '').toLowerCase().includes(query)
+        );
+      });
+      result = Object.fromEntries(Object.entries(result).filter(([_, cards]) => cards.length > 0));
+    }
     Object.keys(result).forEach(setName => {
       const setCards = [...result[setName]];
       switch (sortBy) {
@@ -1077,7 +1092,7 @@ export default function App() {
       result[setName] = setCards;
     });
     return result;
-  }, [collections, collectionTypes, activeCollection, filterCollected, sortBy, customOrder]);
+  }, [collections, collectionTypes, activeCollection, filterCollected, searchQuery, sortBy, customOrder]);
 
   const overallPercentage = stats.totalCards > 0 ? Math.round((stats.totalCollected / stats.totalCards) * 100) : 0;
 
@@ -1135,6 +1150,32 @@ export default function App() {
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="px-4 pt-3">
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search cards..."
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center hover:bg-slate-500"
+            >
+              <svg className="w-3 h-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
