@@ -16,6 +16,27 @@ const COLLECTION_COLORS = {
 // Helper function to ensure array
 const ensureArray = (val) => Array.isArray(val) ? val : [];
 
+// Investment calculation utilities
+const calculateGain = (purchasePrice, currentValue) => {
+  if (!purchasePrice || !currentValue) return null;
+  return currentValue - purchasePrice;
+};
+
+const calculateGainPercent = (purchasePrice, currentValue) => {
+  if (!purchasePrice || !currentValue || purchasePrice === 0) return null;
+  return ((currentValue - purchasePrice) / purchasePrice) * 100;
+};
+
+const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined) return '-';
+  return `$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
+
+const formatPercent = (percent) => {
+  if (percent === null || percent === undefined) return '-';
+  return `${percent >= 0 ? '+' : ''}${percent.toFixed(1)}%`;
+};
+
 // Flatten the nested cardData structure
 const flattenCardData = (data) => {
   if (Array.isArray(data)) return data;
@@ -34,7 +55,11 @@ const flattenCardData = (data) => {
           serial: card.serial || card.numbered || '',
           source: card.source || '',
           collected: false,
-          collectionType: getCollectionTypeFromSetKey(setKey)
+          collectionType: getCollectionTypeFromSetKey(setKey),
+          // Investment fields
+          purchasePrice: null,
+          purchaseDate: null,
+          currentValue: null
         });
       });
     });
@@ -134,6 +159,144 @@ const LoginScreen = ({ onLogin, loading }) => (
     </div>
   </div>
 );
+
+// ===== PORTFOLIO VALUE CARD =====
+const PortfolioValueCard = ({ cards }) => {
+  const stats = useMemo(() => {
+    let totalInvested = 0;
+    let totalCurrentValue = 0;
+    let cardsValued = 0;
+    
+    cards.forEach(card => {
+      if (card.purchasePrice) {
+        totalInvested += parseFloat(card.purchasePrice);
+      }
+      if (card.currentValue) {
+        totalCurrentValue += parseFloat(card.currentValue);
+        if (card.purchasePrice) cardsValued++;
+      }
+    });
+    
+    const totalGain = totalCurrentValue - totalInvested;
+    const totalGainPercent = totalInvested > 0 ? ((totalCurrentValue - totalInvested) / totalInvested) * 100 : 0;
+    const avgCardValue = cardsValued > 0 ? totalCurrentValue / cardsValued : 0;
+    
+    return {
+      totalInvested,
+      totalCurrentValue,
+      totalGain,
+      totalGainPercent,
+      cardsValued,
+      totalCards: cards.filter(c => c.collected).length,
+      avgCardValue
+    };
+  }, [cards]);
+  
+  const isPositive = stats.totalGain >= 0;
+  
+  return (
+    <div className={`backdrop-blur rounded-2xl p-4 border-2 ${
+      isPositive 
+        ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/10 border-green-500/30' 
+        : 'bg-gradient-to-br from-red-500/20 to-rose-500/10 border-red-500/30'
+    }`}>
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className="text-slate-400 text-sm mb-1">Portfolio Value</p>
+          <p className="text-white font-bold text-3xl">{formatCurrency(stats.totalCurrentValue)}</p>
+        </div>
+        <div className="text-right">
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${
+            isPositive ? 'bg-green-500/20' : 'bg-red-500/20'
+          }`}>
+            <svg className={`w-3.5 h-3.5 ${isPositive ? 'text-green-400' : 'text-red-400 rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+            <span className={`text-sm font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+              {formatPercent(stats.totalGainPercent)}
+            </span>
+          </div>
+          <p className={`text-xs mt-1 font-medium ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+            {isPositive ? '+' : ''}{formatCurrency(stats.totalGain)}
+          </p>
+        </div>
+      </div>
+
+      <div className={`grid grid-cols-3 gap-3 pt-3 border-t ${isPositive ? 'border-green-500/20' : 'border-red-500/20'}`}>
+        <div>
+          <p className="text-slate-400 text-xs">Invested</p>
+          <p className="text-white font-semibold">{formatCurrency(stats.totalInvested)}</p>
+        </div>
+        <div>
+          <p className="text-slate-400 text-xs">Cards Valued</p>
+          <p className="text-white font-semibold">{stats.cardsValued}/{stats.totalCards}</p>
+        </div>
+        <div>
+          <p className="text-slate-400 text-xs">Avg. Card</p>
+          <p className="text-white font-semibold">{formatCurrency(stats.avgCardValue)}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ===== TOP PERFORMERS SECTION =====
+const TopPerformers = ({ cards }) => {
+  const performers = useMemo(() => {
+    const withGains = cards
+      .filter(c => c.collected && c.purchasePrice && c.currentValue)
+      .map(c => ({
+        ...c,
+        gain: calculateGain(c.purchasePrice, c.currentValue),
+        gainPercent: calculateGainPercent(c.purchasePrice, c.currentValue)
+      }))
+      .sort((a, b) => b.gainPercent - a.gainPercent);
+    
+    const top = withGains.slice(0, 2);
+    const bottom = withGains.slice(-1);
+    
+    return [...top, ...bottom];
+  }, [cards]);
+  
+  if (performers.length === 0) return null;
+  
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-white font-semibold text-sm">🔥 Top Performers</h3>
+      </div>
+      
+      <div className="space-y-2">
+        {performers.map((card, index) => {
+          const isPositive = card.gain >= 0;
+          const borderColor = index < 2 ? 'border-green-500' : 'border-red-500';
+          const borderOpacity = index === 1 ? '/60' : '';
+          
+          return (
+            <div key={card.id} className={`bg-slate-800 rounded-xl p-3 border-l-4 ${borderColor}${borderOpacity}`}>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium text-sm truncate">{card.cardName || card.parallel}</p>
+                  <p className="text-slate-400 text-xs truncate">
+                    {card.setName} • {card.cardNumber && `#${card.cardNumber}`}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={`font-bold text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                    {formatPercent(card.gainPercent)}
+                  </p>
+                  <p className="text-slate-400 text-xs">
+                    {formatCurrency(card.purchasePrice)} → {formatCurrency(card.currentValue)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 // ===== THREE DOT MENU =====
 const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) => {
@@ -239,27 +402,41 @@ const CardItem = ({
   canMoveDown,
   collectionColor 
 }) => {
-  const rarityColor = card.serial === '1/1' ? 'bg-yellow-500' : 
-                      card.serial?.includes('/5') ? 'bg-red-500' :
-                      card.serial?.includes('/10') ? 'bg-orange-500' :
-                      card.serial?.includes('/25') ? 'bg-purple-500' :
-                      card.serial?.includes('/50') ? 'bg-blue-500' :
-                      card.serial?.includes('/99') ? 'bg-green-500' :
-                      'bg-slate-600';
+  const gain = calculateGain(card.purchasePrice, card.currentValue);
+  const gainPercent = calculateGainPercent(card.purchasePrice, card.currentValue);
+  const hasInvestmentData = card.purchasePrice && card.currentValue;
+  
+  // Determine indicator color
+  let indicatorColor = 'bg-slate-600';
+  if (card.collected && hasInvestmentData) {
+    indicatorColor = gain >= 0 ? 'bg-green-500' : 'bg-red-500';
+  } else if (card.collected) {
+    indicatorColor = collectionColor?.bg || 'bg-slate-600';
+  }
 
   return (
     <div className="bg-slate-800 rounded-xl p-3 flex items-center gap-3 mb-2 transition-all duration-200 border-2 border-transparent">
       {/* Color indicator */}
-      <div className={`w-1 h-10 rounded-full ${card.collected ? (collectionColor?.bg || rarityColor) : 'bg-slate-600'}`} />
+      <div className={`w-1 h-10 rounded-full ${indicatorColor}`} />
 
-      {/* Card info - Just show card name, not collection name */}
+      {/* Card info */}
       <div className="flex-1 min-w-0">
-        <p className="text-white font-medium truncate">
+        <p className="text-white font-medium truncate text-sm">
           {card.cardName || card.parallel || 'Card'}
         </p>
-        <p className="text-slate-400 text-sm truncate">
+        <p className="text-slate-400 text-xs truncate">
           {card.cardNumber && `#${card.cardNumber}`} {card.serial && `• ${card.serial}`}
         </p>
+        {hasInvestmentData && (
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`text-xs font-bold ${gain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {gain >= 0 ? '+' : ''}{formatCurrency(gain)} ({formatPercent(gainPercent)})
+            </span>
+            <span className="text-slate-500 text-xs">
+              {formatCurrency(card.purchasePrice)} → {formatCurrency(card.currentValue)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Collected checkbox */}
@@ -308,6 +485,17 @@ const CollectionSection = ({
   const collected = cards.filter(c => c.collected).length;
   const total = cards.length;
   const percentage = total > 0 ? Math.round((collected / total) * 100) : 0;
+  
+  // Calculate collection investment stats
+  const collectionGain = useMemo(() => {
+    let totalGain = 0;
+    cards.forEach(card => {
+      if (card.purchasePrice && card.currentValue) {
+        totalGain += calculateGain(card.purchasePrice, card.currentValue);
+      }
+    });
+    return totalGain;
+  }, [cards]);
 
   return (
     <div className="mb-4">
@@ -318,9 +506,15 @@ const CollectionSection = ({
       >
         <div className={`w-1.5 h-10 rounded-full ${colors.bg}`} />
         <div className="flex-1 min-w-0">
-          {/* Just show set name without collection type prefix */}
-          <p className="text-white font-semibold truncate">{setName}</p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-white font-semibold truncate">{setName}</p>
+            {collectionGain !== 0 && (
+              <span className={`text-xs font-bold ${collectionGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {collectionGain >= 0 ? '+' : ''}{formatCurrency(collectionGain)}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
               <div 
                 className={`h-full bg-gradient-to-r ${colors.gradient} transition-all duration-500`}
@@ -396,7 +590,10 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
         parallel: card.parallel || '',
         serial: card.serial || '',
         source: card.source || '',
-        notes: card.notes || ''
+        notes: card.notes || '',
+        purchasePrice: card.purchasePrice || '',
+        purchaseDate: card.purchaseDate || '',
+        currentValue: card.currentValue || ''
       });
     }
   }, [card]);
@@ -408,6 +605,10 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
     onSave({ ...card, ...formData });
     onClose();
   };
+  
+  const gain = calculateGain(formData.purchasePrice, formData.currentValue);
+  const gainPercent = calculateGainPercent(formData.purchasePrice, formData.currentValue);
+  const hasInvestmentData = formData.purchasePrice && formData.currentValue;
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
@@ -432,14 +633,26 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
                 className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
               />
             </div>
-            <div>
-              <label className="block text-slate-300 text-sm mb-1">Card Number</label>
-              <input
-                type="text"
-                value={formData.cardNumber}
-                onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">Card Number</label>
+                <input
+                  type="text"
+                  value={formData.cardNumber}
+                  onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">Serial Number</label>
+                <input
+                  type="text"
+                  value={formData.serial}
+                  onChange={(e) => setFormData({ ...formData, serial: e.target.value })}
+                  placeholder="e.g., /99"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-slate-300 text-sm mb-1">Parallel/Variation</label>
@@ -448,16 +661,6 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
                 value={formData.parallel}
                 onChange={(e) => setFormData({ ...formData, parallel: e.target.value })}
                 className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-300 text-sm mb-1">Serial Number</label>
-              <input
-                type="text"
-                value={formData.serial}
-                onChange={(e) => setFormData({ ...formData, serial: e.target.value })}
-                placeholder="e.g., /99, 1/1"
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
               />
             </div>
             <div>
@@ -478,6 +681,87 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
                 rows={3}
                 className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 resize-none"
               />
+            </div>
+
+            {/* Investment Section */}
+            <div className="pt-2 border-t border-slate-700">
+              <h4 className="text-orange-500 font-semibold text-sm mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Investment Tracking
+              </h4>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">Purchase Price</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.purchasePrice}
+                      onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
+                      placeholder="0.00"
+                      className="w-full bg-slate-700 border border-slate-600 rounded-xl pl-7 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">Purchase Date</label>
+                  <input
+                    type="date"
+                    value={formData.purchaseDate}
+                    onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <label className="block text-slate-300 text-sm mb-1">Current Value</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.currentValue}
+                    onChange={(e) => setFormData({ ...formData, currentValue: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-xl pl-7 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+                <p className="text-slate-500 text-xs mt-1">Update manually or link to market data</p>
+              </div>
+
+              {/* Gain/Loss Display */}
+              {hasInvestmentData && (
+                <div className={`mt-3 rounded-xl p-3 border ${
+                  gain >= 0 
+                    ? 'bg-green-500/10 border-green-500/30' 
+                    : 'bg-red-500/10 border-red-500/30'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-slate-400 text-xs">Total {gain >= 0 ? 'Gain' : 'Loss'}</p>
+                      <p className={`font-bold text-xl ${gain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {gain >= 0 ? '+' : ''}{formatCurrency(gain)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-slate-400 text-xs">ROI</p>
+                      <div className="flex items-center gap-1">
+                        <svg className={`w-4 h-4 ${gain >= 0 ? 'text-green-400' : 'text-red-400 rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                        </svg>
+                        <p className={`font-bold text-xl ${gain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {formatPercent(gainPercent)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -620,7 +904,7 @@ const AddCardsModal = ({ isOpen, onClose, onAddCards, collections }) => {
       setSelectedCollection(collections[0] || '');
       setCards([{ cardName: '', cardNumber: '', parallel: '', serial: '' }]);
     }
-  }, [isOpen]); // BUG FIX: Removed 'collections' from dependency array
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -973,7 +1257,19 @@ export default function App() {
   };
 
   const handleAddCollection = (name, type) => {
-    const newCard = { id: generateId(), setName: name, cardName: 'Base', cardNumber: '', parallel: '', serial: '', collected: false, collectionType: type };
+    const newCard = { 
+      id: generateId(), 
+      setName: name, 
+      cardName: 'Base', 
+      cardNumber: '', 
+      parallel: '', 
+      serial: '', 
+      collected: false, 
+      collectionType: type,
+      purchasePrice: null,
+      purchaseDate: null,
+      currentValue: null
+    };
     const updated = [...cards, newCard];
     setCards(updated);
     saveToFirebase(updated);
@@ -990,7 +1286,10 @@ export default function App() {
       parallel: card.parallel,
       serial: card.serial,
       collected: false,
-      collectionType
+      collectionType,
+      purchasePrice: null,
+      purchaseDate: null,
+      currentValue: null
     }));
     const updated = [...cards, ...cardsToAdd];
     setCards(updated);
@@ -1152,6 +1451,9 @@ export default function App() {
   }, [collections, collectionTypes, activeCollection, filterCollected, searchQuery, sortBy, collectionSortBy, customOrder]);
 
   const overallPercentage = stats.totalCards > 0 ? Math.round((stats.totalCollected / stats.totalCards) * 100) : 0;
+  
+  // Get collected cards for investment tracking
+  const collectedCards = useMemo(() => cards.filter(c => c.collected), [cards]);
 
   if (authLoading) {
     return (
@@ -1177,7 +1479,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="bg-slate-800/80 backdrop-blur rounded-2xl p-4">
+        <div className="bg-slate-800/80 backdrop-blur rounded-2xl p-4 mb-3">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-white font-bold text-lg">Devin Booker</h2>
@@ -1208,7 +1510,13 @@ export default function App() {
             })}
           </div>
         </div>
+
+        {/* Portfolio Value Card */}
+        <PortfolioValueCard cards={collectedCards} />
       </div>
+
+      {/* Top Performers */}
+      <TopPerformers cards={collectedCards} />
 
       {/* Search Bar */}
       <div className="px-4 pt-3">
