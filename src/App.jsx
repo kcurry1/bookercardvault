@@ -160,6 +160,146 @@ const LoginScreen = ({ onLogin, loading }) => (
   </div>
 );
 
+// ===== HIDDEN CARDS RECOVERY MODAL =====
+const HiddenCardsModal = ({ isOpen, onClose, hiddenCards, onRestore }) => {
+  const [selectedCards, setSelectedCards] = useState([]);
+  
+  const hiddenByCollection = useMemo(() => {
+    const grouped = {};
+    hiddenCards.forEach(card => {
+      const setName = card.setName || 'Uncategorized';
+      if (!grouped[setName]) grouped[setName] = [];
+      grouped[setName].push(card);
+    });
+    return grouped;
+  }, [hiddenCards]);
+  
+  if (!isOpen) return null;
+  
+  const handleToggleCard = (cardId) => {
+    setSelectedCards(prev => 
+      prev.includes(cardId) 
+        ? prev.filter(id => id !== cardId)
+        : [...prev, cardId]
+    );
+  };
+  
+  const handleRestoreSelected = () => {
+    if (selectedCards.length > 0) {
+      onRestore(selectedCards);
+      setSelectedCards([]);
+    }
+  };
+  
+  const handleRestoreCollection = (setName) => {
+    const collectionCards = hiddenByCollection[setName].map(c => c.id);
+    onRestore(collectionCards);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-white text-lg font-bold">🔄 Hidden Cards Recovery</h3>
+              <p className="text-slate-400 text-sm">Restore deleted cards and collections</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
+              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {hiddenCards.length === 0 ? (
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-slate-400">No hidden cards to restore</p>
+              <p className="text-slate-500 text-sm mt-1">All your cards are safe!</p>
+            </div>
+          ) : (
+            <>
+              <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-orange-400 text-sm font-medium">Your data is safe!</p>
+                    <p className="text-orange-300/80 text-xs mt-0.5">Found {hiddenCards.length} hidden card{hiddenCards.length !== 1 ? 's' : ''} across {Object.keys(hiddenByCollection).length} collection{Object.keys(hiddenByCollection).length !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-4">
+                {Object.entries(hiddenByCollection).map(([setName, cards]) => (
+                  <div key={setName} className="bg-slate-700/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h4 className="text-white font-semibold">{setName}</h4>
+                        <p className="text-slate-400 text-sm">{cards.length} card{cards.length !== 1 ? 's' : ''}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRestoreCollection(setName)}
+                        className="px-3 py-1.5 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors"
+                      >
+                        Restore All
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {cards.map(card => (
+                        <div key={card.id} className="bg-slate-800 rounded-lg p-3 flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedCards.includes(card.id)}
+                            onChange={() => handleToggleCard(card.id)}
+                            className="w-4 h-4 rounded border-slate-600 text-orange-500 focus:ring-orange-500 focus:ring-offset-slate-800"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">
+                              {card.cardName || card.parallel || 'Card'}
+                            </p>
+                            <p className="text-slate-400 text-xs">
+                              {card.cardNumber && `#${card.cardNumber}`} {card.serial && `• ${card.serial}`}
+                            </p>
+                          </div>
+                          {card.collected && (
+                            <span className="text-xs text-green-400 bg-green-500/20 px-2 py-0.5 rounded-full">Collected</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-2 border-t border-slate-700">
+                <button 
+                  onClick={onClose}
+                  className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 font-medium hover:bg-slate-600"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleRestoreSelected}
+                  disabled={selectedCards.length === 0}
+                  className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Restore Selected ({selectedCards.length})
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ===== PORTFOLIO VALUE CARD =====
 const PortfolioValueCard = ({ cards }) => {
   const stats = useMemo(() => {
@@ -904,7 +1044,7 @@ const AddCardsModal = ({ isOpen, onClose, onAddCards, collections }) => {
       setSelectedCollection(collections[0] || '');
       setCards([{ cardName: '', cardNumber: '', parallel: '', serial: '' }]);
     }
-  }, [isOpen]);
+  }, [isOpen, collections]);
 
   if (!isOpen) return null;
 
@@ -1136,6 +1276,7 @@ export default function App() {
   const [showAddCards, setShowAddCards] = useState(false);
   const [showFilterSort, setShowFilterSort] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showHiddenCards, setShowHiddenCards] = useState(false);
 
   const defaultCards = useMemo(() => flattenCardData(cardData), []);
 
@@ -1330,6 +1471,17 @@ export default function App() {
     saveToFirebase(cards, newOrder);
   };
 
+  // Handler to restore hidden cards
+  const handleRestoreCards = (cardIds) => {
+    const cardsToRestore = hiddenCards.filter(c => cardIds.includes(c.id));
+    const remainingHidden = hiddenCards.filter(c => !cardIds.includes(c.id));
+    const updated = [...cards, ...cardsToRestore];
+    
+    setCards(updated);
+    setHiddenCards(remainingHidden);
+    saveToFirebase(updated, customOrder, remainingHidden);
+  };
+
   const collections = useMemo(() => {
     const sets = {};
     cards.forEach(card => {
@@ -1473,6 +1625,20 @@ export default function App() {
           <div className="flex items-center gap-2">
             {syncing && <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />}
             {saveError && <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
+            {/* Hidden Cards Recovery Button */}
+            {hiddenCards.length > 0 && (
+              <button
+                onClick={() => setShowHiddenCards(true)}
+                className="relative w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center hover:bg-orange-500/30 transition-colors"
+              >
+                <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full text-white text-xs flex items-center justify-center font-bold">
+                  {hiddenCards.length}
+                </span>
+              </button>
+            )}
             <button onClick={handleLogout} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
               <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             </button>
@@ -1591,6 +1757,12 @@ export default function App() {
       <AddCollectionModal isOpen={showAddCollection} onClose={() => setShowAddCollection(false)} onAddCollection={handleAddCollection} />
       <AddCardsModal isOpen={showAddCards} onClose={() => setShowAddCards(false)} onAddCards={handleAddCards} collections={Object.keys(collections)} />
       <FilterSortModal isOpen={showFilterSort} onClose={() => setShowFilterSort(false)} sortBy={sortBy} setSortBy={setSortBy} collectionSortBy={collectionSortBy} setCollectionSortBy={setCollectionSortBy} filterCollected={filterCollected} setFilterCollected={setFilterCollected} />
+      <HiddenCardsModal 
+        isOpen={showHiddenCards} 
+        onClose={() => setShowHiddenCards(false)} 
+        hiddenCards={hiddenCards}
+        onRestore={handleRestoreCards}
+      />
     </div>
   );
 }
