@@ -620,7 +620,7 @@ const AddCardsModal = ({ isOpen, onClose, onAddCards, collections }) => {
       setSelectedCollection(collections[0] || '');
       setCards([{ cardName: '', cardNumber: '', parallel: '', serial: '' }]);
     }
-  }, [isOpen, collections]);
+  }, [isOpen]); // BUG FIX: Removed 'collections' from dependency array
 
   if (!isOpen) return null;
 
