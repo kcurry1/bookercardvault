@@ -56,7 +56,6 @@ const flattenCardData = (data) => {
           source: card.source || '',
           collected: false,
           collectionType: getCollectionTypeFromSetKey(setKey),
-          // Investment fields
           purchasePrice: null,
           purchaseDate: null,
           currentValue: null
@@ -93,9 +92,76 @@ const getCollectionType = (setName) => {
 // Generate unique ID
 const generateId = () => `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+// ===== iOS-STYLE GLOBAL ANIMATIONS (CHANGE #3) =====
+const IOSStyles = () => (
+  <style>{`
+    * { -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+    body { overscroll-behavior-y: none; }
+    
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    @keyframes slideDown {
+      from { transform: translateY(-10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes checkPop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.25); }
+      100% { transform: scale(1); }
+    }
+    
+    .ios-slide-up { animation: slideUp 0.38s cubic-bezier(0.32, 0.72, 0, 1); }
+    .ios-fade-in { animation: fadeIn 0.25s ease-out; }
+    .ios-scale-in { animation: scaleIn 0.2s cubic-bezier(0.32, 0.72, 0, 1); }
+    .ios-slide-down { animation: slideDown 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+    .ios-check-pop { animation: checkPop 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+    
+    .ios-press { transition: transform 0.15s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.15s ease; }
+    .ios-press:active { transform: scale(0.97); opacity: 0.8; }
+    
+    .ios-card {
+      transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    .ios-card:active { transform: scale(0.98); }
+    
+    .ios-modal-backdrop {
+      animation: fadeIn 0.2s ease-out;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .ios-modal-content {
+      animation: slideUp 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    
+    .ios-blur {
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+    }
+    
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    .collection-cards-enter { animation: fadeIn 0.2s ease-out, slideDown 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+    
+    .menu-dropdown { animation: scaleIn 0.15s cubic-bezier(0.32, 0.72, 0, 1); transform-origin: top right; }
+  `}</style>
+);
+
 // ===== LOGIN SCREEN =====
 const LoginScreen = ({ onLogin, loading }) => (
   <div className="min-h-screen bg-black relative overflow-hidden">
+    <IOSStyles />
     <div className="absolute inset-0">
       <img 
         src="/booker-jersey.jpg"
@@ -113,7 +179,7 @@ const LoginScreen = ({ onLogin, loading }) => (
       
       <div className="flex-1" />
       
-      <div className="p-5 pb-8 space-y-5">
+      <div className="p-5 pb-8 space-y-5 ios-slide-up">
         <div>
           <h1 className="text-white text-4xl font-bold leading-tight">
             Track Your<br />
@@ -139,7 +205,7 @@ const LoginScreen = ({ onLogin, loading }) => (
         <button
           onClick={onLogin}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-4 px-6 rounded-2xl transition-all disabled:opacity-50 shadow-2xl"
+          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-4 px-6 rounded-2xl transition-all disabled:opacity-50 shadow-2xl ios-press"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
@@ -197,15 +263,16 @@ const HiddenCardsModal = ({ isOpen, onClose, hiddenCards, onRestore }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center ios-modal-backdrop" onClick={onClose}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto ios-modal-content" onClick={e => e.stopPropagation()}>
         <div className="p-5">
+          <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white text-lg font-bold">🔄 Hidden Cards Recovery</h3>
+              <h3 className="text-white text-lg font-bold">Hidden Cards Recovery</h3>
               <p className="text-slate-400 text-sm">Restore deleted cards and collections</p>
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center ios-press">
               <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -222,7 +289,7 @@ const HiddenCardsModal = ({ isOpen, onClose, hiddenCards, onRestore }) => {
             </div>
           ) : (
             <>
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-3 mb-4">
+              <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-3 mb-4">
                 <div className="flex items-start gap-2">
                   <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -236,7 +303,7 @@ const HiddenCardsModal = ({ isOpen, onClose, hiddenCards, onRestore }) => {
 
               <div className="space-y-4 mb-4">
                 {Object.entries(hiddenByCollection).map(([setName, cards]) => (
-                  <div key={setName} className="bg-slate-700/50 rounded-xl p-4">
+                  <div key={setName} className="bg-slate-700/50 rounded-2xl p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <h4 className="text-white font-semibold">{setName}</h4>
@@ -244,7 +311,7 @@ const HiddenCardsModal = ({ isOpen, onClose, hiddenCards, onRestore }) => {
                       </div>
                       <button
                         onClick={() => handleRestoreCollection(setName)}
-                        className="px-3 py-1.5 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors"
+                        className="px-3 py-1.5 rounded-2xl bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors ios-press"
                       >
                         Restore All
                       </button>
@@ -252,7 +319,7 @@ const HiddenCardsModal = ({ isOpen, onClose, hiddenCards, onRestore }) => {
                     
                     <div className="space-y-2">
                       {cards.map(card => (
-                        <div key={card.id} className="bg-slate-800 rounded-lg p-3 flex items-center gap-3">
+                        <div key={card.id} className="bg-slate-800 rounded-xl p-3 flex items-center gap-3">
                           <input
                             type="checkbox"
                             checked={selectedCards.includes(card.id)}
@@ -280,14 +347,14 @@ const HiddenCardsModal = ({ isOpen, onClose, hiddenCards, onRestore }) => {
               <div className="flex gap-3 pt-2 border-t border-slate-700">
                 <button 
                   onClick={onClose}
-                  className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 font-medium hover:bg-slate-600"
+                  className="flex-1 py-3 rounded-2xl bg-slate-700 text-slate-300 font-medium ios-press"
                 >
                   Close
                 </button>
                 <button
                   onClick={handleRestoreSelected}
                   disabled={selectedCards.length === 0}
-                  className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 py-3 rounded-2xl bg-orange-500 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors ios-press"
                 >
                   Restore Selected ({selectedCards.length})
                 </button>
@@ -335,10 +402,10 @@ const PortfolioValueCard = ({ cards }) => {
   const isPositive = stats.totalGain >= 0;
   
   return (
-    <div className={`backdrop-blur rounded-2xl p-4 border-2 ${
+    <div className={`ios-blur rounded-2xl p-4 border ${
       isPositive 
-        ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/10 border-green-500/30' 
-        : 'bg-gradient-to-br from-red-500/20 to-rose-500/10 border-red-500/30'
+        ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/10 border-green-500/20' 
+        : 'bg-gradient-to-br from-red-500/20 to-rose-500/10 border-red-500/20'
     }`}>
       <div className="flex items-start justify-between mb-3">
         <div>
@@ -380,7 +447,7 @@ const PortfolioValueCard = ({ cards }) => {
   );
 };
 
-// ===== TOP PERFORMERS SECTION =====
+// ===== TOP PERFORMERS (CHANGE #4: border colors removed) =====
 const TopPerformers = ({ cards }) => {
   const performers = useMemo(() => {
     const withGains = cards
@@ -407,13 +474,11 @@ const TopPerformers = ({ cards }) => {
       </div>
       
       <div className="space-y-2">
-        {performers.map((card, index) => {
+        {performers.map((card) => {
           const isPositive = card.gain >= 0;
-          const borderColor = index < 2 ? 'border-green-500' : 'border-red-500';
-          const borderOpacity = index === 1 ? '/60' : '';
           
           return (
-            <div key={card.id} className={`bg-slate-800 rounded-xl p-3 border-l-4 ${borderColor}${borderOpacity}`}>
+            <div key={card.id} className="bg-slate-800/80 rounded-2xl p-3 ios-card">
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-medium text-sm truncate">{card.cardName || card.parallel}</p>
@@ -438,8 +503,8 @@ const TopPerformers = ({ cards }) => {
   );
 };
 
-// ===== THREE DOT MENU =====
-const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) => {
+// ===== THREE DOT MENU (CHANGE #2: reusable wrapper) =====
+const ThreeDotMenu = ({ children, className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = React.useRef(null);
 
@@ -460,10 +525,10 @@ const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete, onMoveUp, onMoveDown, can
   }, [isOpen]);
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className={`relative ${className}`} ref={menuRef}>
       <button
         onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
-        className="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center transition-colors"
+        className="w-8 h-8 rounded-full hover:bg-slate-600/50 flex items-center justify-center transition-colors ios-press"
       >
         <svg className="w-5 h-5 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
           <circle cx="12" cy="5" r="2"/>
@@ -473,61 +538,30 @@ const ThreeDotMenu = ({ onEdit, onDuplicate, onDelete, onMoveUp, onMoveDown, can
       </button>
       
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 bg-slate-700 rounded-xl shadow-xl border border-slate-600 py-1 z-50 min-w-[140px]">
-          {canMoveUp && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onMoveUp(); setIsOpen(false); }}
-              className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
-            >
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-              Move Up
-            </button>
+        <div className="absolute right-0 top-full mt-1 bg-slate-700 rounded-2xl shadow-2xl border border-slate-600 py-1.5 z-50 min-w-[160px] menu-dropdown overflow-hidden">
+          {React.Children.map(children, child => 
+            child ? React.cloneElement(child, { onAfterClick: () => setIsOpen(false) }) : null
           )}
-          {canMoveDown && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onMoveDown(); setIsOpen(false); }}
-              className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
-            >
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-              Move Down
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); setIsOpen(false); }}
-            className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
-          >
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-            Edit
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDuplicate(); setIsOpen(false); }}
-            className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-600 flex items-center gap-3 transition-colors"
-          >
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            Duplicate
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); setIsOpen(false); }}
-            className="w-full px-4 py-2.5 text-left text-red-400 hover:bg-slate-600 flex items-center gap-3 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            Delete
-          </button>
         </div>
       )}
     </div>
   );
 };
+
+// Menu item component
+const MenuItem = ({ icon, label, onClick, danger = false, onAfterClick }) => (
+  <button
+    onClick={(e) => { e.stopPropagation(); onClick(); onAfterClick?.(); }}
+    className={`w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors ${
+      danger ? 'text-red-400 hover:bg-red-500/10' : 'text-white hover:bg-slate-600/50'
+    }`}
+  >
+    <svg className={`w-4 h-4 ${danger ? '' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
+    </svg>
+    <span className="text-sm font-medium">{label}</span>
+  </button>
+);
 
 // ===== CARD ITEM =====
 const CardItem = ({ 
@@ -546,7 +580,6 @@ const CardItem = ({
   const gainPercent = calculateGainPercent(card.purchasePrice, card.currentValue);
   const hasInvestmentData = card.purchasePrice && card.currentValue;
   
-  // Determine indicator color
   let indicatorColor = 'bg-slate-600';
   if (card.collected && hasInvestmentData) {
     indicatorColor = gain >= 0 ? 'bg-green-500' : 'bg-red-500';
@@ -555,9 +588,9 @@ const CardItem = ({
   }
 
   return (
-    <div className="bg-slate-800 rounded-xl p-3 flex items-center gap-3 mb-2 transition-all duration-200 border-2 border-transparent">
+    <div className="bg-slate-800/60 rounded-2xl p-3 flex items-center gap-3 mb-2 ios-card">
       {/* Color indicator */}
-      <div className={`w-1 h-10 rounded-full ${indicatorColor}`} />
+      <div className={`w-1 h-10 rounded-full ${indicatorColor} transition-colors duration-300`} />
 
       {/* Card info */}
       <div className="flex-1 min-w-0">
@@ -582,8 +615,8 @@ const CardItem = ({
       {/* Collected checkbox */}
       <button
         onClick={(e) => { e.stopPropagation(); onToggleCollected(card.id); }}
-        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-          card.collected ? 'bg-orange-500 border-orange-500' : 'border-slate-500'
+        className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ios-press ${
+          card.collected ? 'bg-orange-500 border-orange-500 ios-check-pop' : 'border-slate-500 hover:border-slate-400'
         }`}
       >
         {card.collected && (
@@ -594,20 +627,18 @@ const CardItem = ({
       </button>
 
       {/* Three dot menu */}
-      <ThreeDotMenu
-        onEdit={() => onEdit(card)}
-        onDuplicate={() => onDuplicate(card)}
-        onDelete={() => onDelete(card.id)}
-        onMoveUp={() => onMoveUp(card)}
-        onMoveDown={() => onMoveDown(card)}
-        canMoveUp={canMoveUp}
-        canMoveDown={canMoveDown}
-      />
+      <ThreeDotMenu>
+        {canMoveUp && <MenuItem icon="M5 15l7-7 7 7" label="Move Up" onClick={() => onMoveUp(card)} />}
+        {canMoveDown && <MenuItem icon="M19 9l-7 7-7-7" label="Move Down" onClick={() => onMoveDown(card)} />}
+        <MenuItem icon="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" label="Edit" onClick={() => onEdit(card)} />
+        <MenuItem icon="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" label="Duplicate" onClick={() => onDuplicate(card)} />
+        <MenuItem icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" label="Delete" onClick={() => onDelete(card.id)} danger />
+      </ThreeDotMenu>
     </div>
   );
 };
 
-// ===== COLLECTION SECTION =====
+// ===== COLLECTION SECTION (CHANGE #2: ⋮ menu replaces pencil+trash) =====
 const CollectionSection = ({ 
   setName, 
   cards, 
@@ -618,6 +649,7 @@ const CollectionSection = ({
   onToggleCollected,
   onEditCollection,
   onDeleteCollection,
+  onDuplicateCollection,
   onMoveCard
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -626,7 +658,6 @@ const CollectionSection = ({
   const total = cards.length;
   const percentage = total > 0 ? Math.round((collected / total) * 100) : 0;
   
-  // Calculate collection investment stats
   const collectionGain = useMemo(() => {
     let totalGain = 0;
     cards.forEach(card => {
@@ -638,13 +669,13 @@ const CollectionSection = ({
   }, [cards]);
 
   return (
-    <div className="mb-4">
+    <div className="mb-3">
       {/* Collection Header */}
       <div 
-        className="bg-slate-800/80 rounded-xl p-3 flex items-center gap-3 cursor-pointer"
+        className="bg-slate-800/60 ios-blur rounded-2xl p-3.5 flex items-center gap-3 ios-card cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className={`w-1.5 h-10 rounded-full ${colors.bg}`} />
+        <div className={`w-1.5 h-10 rounded-full ${colors.bg} flex-shrink-0`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <p className="text-white font-semibold truncate">{setName}</p>
@@ -657,7 +688,7 @@ const CollectionSection = ({
           <div className="flex items-center gap-2">
             <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
               <div 
-                className={`h-full bg-gradient-to-r ${colors.gradient} transition-all duration-500`}
+                className={`h-full bg-gradient-to-r ${colors.gradient} transition-all duration-700 ease-out`}
                 style={{ width: `${percentage}%` }}
               />
             </div>
@@ -665,35 +696,39 @@ const CollectionSection = ({
             <span className="text-slate-500 text-xs">({collected}/{total})</span>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); onEditCollection(setName); }}
-            className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center hover:bg-slate-600"
-          >
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDeleteCollection(setName); }}
-            className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center hover:bg-red-500/20"
-          >
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-          <svg 
-            className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
+        
+        {/* Three-dot menu (replaces pencil + trash icons) */}
+        <ThreeDotMenu>
+          <MenuItem 
+            icon="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" 
+            label="Edit Name" 
+            onClick={() => onEditCollection(setName)} 
+          />
+          <MenuItem 
+            icon="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" 
+            label="Duplicate" 
+            onClick={() => onDuplicateCollection(setName)} 
+          />
+          <MenuItem 
+            icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
+            label="Delete" 
+            onClick={() => onDeleteCollection(setName)} 
+            danger 
+          />
+        </ThreeDotMenu>
+
+        {/* Dropdown arrow - spaced from menu */}
+        <svg 
+          className={`w-5 h-5 text-slate-400 transition-transform duration-300 flex-shrink-0 ml-1 ${isExpanded ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
 
       {/* Expanded Cards */}
       {isExpanded && (
-        <div className="mt-2 ml-4">
+        <div className="mt-2 ml-4 collection-cards-enter">
           {cards.map((card, index) => (
             <CardItem
               key={card.id}
@@ -714,6 +749,58 @@ const CollectionSection = ({
           )}
         </div>
       )}
+    </div>
+  );
+};
+
+// ===== DUPLICATE COLLECTION MODAL (CHANGE #1) =====
+const DuplicateCollectionModal = ({ isOpen, onClose, collectionName, onDuplicate }) => {
+  const [newName, setNewName] = useState('');
+
+  useEffect(() => {
+    if (collectionName) setNewName(`${collectionName} (Copy)`);
+  }, [collectionName]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newName.trim()) {
+      onDuplicate(collectionName, newName.trim());
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center ios-modal-backdrop" onClick={onClose}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md ios-modal-content" onClick={e => e.stopPropagation()}>
+        <div className="p-5">
+          <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
+          <h3 className="text-white text-lg font-bold mb-2">Duplicate Collection</h3>
+          <p className="text-slate-400 text-sm mb-4">All cards from "<span className="text-white">{collectionName}</span>" will be copied to the new collection.</p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-slate-300 text-sm mb-1">New Collection Name</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Collection name"
+                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl bg-slate-700 text-slate-300 font-medium ios-press">
+                Cancel
+              </button>
+              <button type="submit" className="flex-1 py-3 rounded-2xl bg-orange-500 text-white font-medium ios-press">
+                Duplicate
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
@@ -750,13 +837,16 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
   const gainPercent = calculateGainPercent(formData.purchasePrice, formData.currentValue);
   const hasInvestmentData = formData.purchasePrice && formData.currentValue;
 
+  const inputClass = "w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors";
+
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center ios-modal-backdrop" onClick={onClose}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto ios-modal-content" onClick={e => e.stopPropagation()}>
         <div className="p-5">
+          <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white text-lg font-bold">Edit Card</h3>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center ios-press">
               <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -766,61 +856,29 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-slate-300 text-sm mb-1">Card Name</label>
-              <input
-                type="text"
-                value={formData.cardName}
-                onChange={(e) => setFormData({ ...formData, cardName: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-              />
+              <input type="text" value={formData.cardName} onChange={(e) => setFormData({ ...formData, cardName: e.target.value })} className={inputClass} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-slate-300 text-sm mb-1">Card Number</label>
-                <input
-                  type="text"
-                  value={formData.cardNumber}
-                  onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-                />
+                <input type="text" value={formData.cardNumber} onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })} className={inputClass} />
               </div>
               <div>
                 <label className="block text-slate-300 text-sm mb-1">Serial Number</label>
-                <input
-                  type="text"
-                  value={formData.serial}
-                  onChange={(e) => setFormData({ ...formData, serial: e.target.value })}
-                  placeholder="e.g., /99"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                />
+                <input type="text" value={formData.serial} onChange={(e) => setFormData({ ...formData, serial: e.target.value })} placeholder="e.g., /99" className={inputClass} />
               </div>
             </div>
             <div>
               <label className="block text-slate-300 text-sm mb-1">Parallel/Variation</label>
-              <input
-                type="text"
-                value={formData.parallel}
-                onChange={(e) => setFormData({ ...formData, parallel: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-              />
+              <input type="text" value={formData.parallel} onChange={(e) => setFormData({ ...formData, parallel: e.target.value })} className={inputClass} />
             </div>
             <div>
               <label className="block text-slate-300 text-sm mb-1">Source</label>
-              <input
-                type="text"
-                value={formData.source}
-                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                placeholder="e.g., Hobby, Retail"
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-              />
+              <input type="text" value={formData.source} onChange={(e) => setFormData({ ...formData, source: e.target.value })} placeholder="e.g., Hobby, Retail" className={inputClass} />
             </div>
             <div>
               <label className="block text-slate-300 text-sm mb-1">Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 resize-none"
-              />
+              <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={3} className={`${inputClass} resize-none`} />
             </div>
 
             {/* Investment Section */}
@@ -837,24 +895,12 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
                   <label className="block text-slate-300 text-sm mb-1">Purchase Price</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.purchasePrice}
-                      onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
-                      placeholder="0.00"
-                      className="w-full bg-slate-700 border border-slate-600 rounded-xl pl-7 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                    />
+                    <input type="number" step="0.01" value={formData.purchasePrice} onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })} placeholder="0.00" className={`${inputClass} pl-7`} />
                   </div>
                 </div>
                 <div>
                   <label className="block text-slate-300 text-sm mb-1">Purchase Date</label>
-                  <input
-                    type="date"
-                    value={formData.purchaseDate}
-                    onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-                  />
+                  <input type="date" value={formData.purchaseDate} onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })} className={inputClass} />
                 </div>
               </div>
 
@@ -862,25 +908,13 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
                 <label className="block text-slate-300 text-sm mb-1">Current Value</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.currentValue}
-                    onChange={(e) => setFormData({ ...formData, currentValue: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full bg-slate-700 border border-slate-600 rounded-xl pl-7 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                  />
+                  <input type="number" step="0.01" value={formData.currentValue} onChange={(e) => setFormData({ ...formData, currentValue: e.target.value })} placeholder="0.00" className={`${inputClass} pl-7`} />
                 </div>
                 <p className="text-slate-500 text-xs mt-1">Update manually or link to market data</p>
               </div>
 
-              {/* Gain/Loss Display */}
               {hasInvestmentData && (
-                <div className={`mt-3 rounded-xl p-3 border ${
-                  gain >= 0 
-                    ? 'bg-green-500/10 border-green-500/30' 
-                    : 'bg-red-500/10 border-red-500/30'
-                }`}>
+                <div className={`mt-3 rounded-2xl p-3 border ${gain >= 0 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-slate-400 text-xs">Total {gain >= 0 ? 'Gain' : 'Loss'}</p>
@@ -905,12 +939,8 @@ const EditCardModal = ({ isOpen, onClose, card, onSave }) => {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 font-medium">
-                Cancel
-              </button>
-              <button type="submit" className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium">
-                Save
-              </button>
+              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl bg-slate-700 text-slate-300 font-medium ios-press">Cancel</button>
+              <button type="submit" className="flex-1 py-3 rounded-2xl bg-orange-500 text-white font-medium ios-press">Save</button>
             </div>
           </form>
         </div>
@@ -938,9 +968,10 @@ const EditCollectionModal = ({ isOpen, onClose, collectionName, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center ios-modal-backdrop" onClick={onClose}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md ios-modal-content" onClick={e => e.stopPropagation()}>
         <div className="p-5">
+          <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
           <h3 className="text-white text-lg font-bold mb-4">Edit Collection</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
@@ -948,16 +979,12 @@ const EditCollectionModal = ({ isOpen, onClose, collectionName, onSave }) => {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Collection name"
-              className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors"
               autoFocus
             />
             <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 font-medium">
-                Cancel
-              </button>
-              <button type="submit" className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium">
-                Save
-              </button>
+              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl bg-slate-700 text-slate-300 font-medium ios-press">Cancel</button>
+              <button type="submit" className="flex-1 py-3 rounded-2xl bg-orange-500 text-white font-medium ios-press">Save</button>
             </div>
           </form>
         </div>
@@ -989,9 +1016,10 @@ const AddCollectionModal = ({ isOpen, onClose, onAddCollection }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center ios-modal-backdrop" onClick={onClose}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md ios-modal-content" onClick={e => e.stopPropagation()}>
         <div className="p-5">
+          <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
           <h3 className="text-white text-lg font-bold mb-4">Add New Collection</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -1001,7 +1029,7 @@ const AddCollectionModal = ({ isOpen, onClose, onAddCollection }) => {
                 value={collectionName}
                 onChange={(e) => setCollectionName(e.target.value)}
                 placeholder="e.g., Base Card, 8-Bit Ballers"
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
                 autoFocus
               />
             </div>
@@ -1010,7 +1038,7 @@ const AddCollectionModal = ({ isOpen, onClose, onAddCollection }) => {
               <select
                 value={collectionType}
                 onChange={(e) => setCollectionType(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors"
               >
                 <option value="flagship">Flagship</option>
                 <option value="chrome">Chrome</option>
@@ -1020,12 +1048,8 @@ const AddCollectionModal = ({ isOpen, onClose, onAddCollection }) => {
               </select>
             </div>
             <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 font-medium">
-                Cancel
-              </button>
-              <button type="submit" className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium">
-                Add Collection
-              </button>
+              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl bg-slate-700 text-slate-300 font-medium ios-press">Cancel</button>
+              <button type="submit" className="flex-1 py-3 rounded-2xl bg-orange-500 text-white font-medium ios-press">Add Collection</button>
             </div>
           </form>
         </div>
@@ -1073,13 +1097,16 @@ const AddCardsModal = ({ isOpen, onClose, onAddCards, collections }) => {
     }
   };
 
+  const inputClass = "bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors";
+
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center ios-modal-backdrop" onClick={onClose}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto ios-modal-content" onClick={e => e.stopPropagation()}>
         <div className="p-5">
+          <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white text-lg font-bold">Add Cards</h3>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center ios-press">
               <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -1092,7 +1119,7 @@ const AddCardsModal = ({ isOpen, onClose, onAddCards, collections }) => {
               <select
                 value={selectedCollection}
                 onChange={(e) => setSelectedCollection(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors"
               >
                 {collections.map(col => (
                   <option key={col} value={col}>{col}</option>
@@ -1102,48 +1129,20 @@ const AddCardsModal = ({ isOpen, onClose, onAddCards, collections }) => {
 
             <div className="space-y-3">
               {cards.map((card, index) => (
-                <div key={index} className="bg-slate-700/50 rounded-xl p-3 space-y-2">
+                <div key={index} className="bg-slate-700/50 rounded-2xl p-3 space-y-2 ios-scale-in">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400 text-sm">Card {index + 1}</span>
                     {cards.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCard(index)}
-                        className="text-red-400 text-sm hover:text-red-300"
-                      >
+                      <button type="button" onClick={() => handleRemoveCard(index)} className="text-red-400 text-sm hover:text-red-300 ios-press">
                         Remove
                       </button>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      placeholder="Card Name"
-                      value={card.cardName}
-                      onChange={(e) => handleCardChange(index, 'cardName', e.target.value)}
-                      className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Card #"
-                      value={card.cardNumber}
-                      onChange={(e) => handleCardChange(index, 'cardNumber', e.target.value)}
-                      className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Parallel"
-                      value={card.parallel}
-                      onChange={(e) => handleCardChange(index, 'parallel', e.target.value)}
-                      className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Serial (e.g., /99)"
-                      value={card.serial}
-                      onChange={(e) => handleCardChange(index, 'serial', e.target.value)}
-                      className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                    />
+                    <input type="text" placeholder="Card Name" value={card.cardName} onChange={(e) => handleCardChange(index, 'cardName', e.target.value)} className={inputClass} />
+                    <input type="text" placeholder="Card #" value={card.cardNumber} onChange={(e) => handleCardChange(index, 'cardNumber', e.target.value)} className={inputClass} />
+                    <input type="text" placeholder="Parallel" value={card.parallel} onChange={(e) => handleCardChange(index, 'parallel', e.target.value)} className={inputClass} />
+                    <input type="text" placeholder="Serial (e.g., /99)" value={card.serial} onChange={(e) => handleCardChange(index, 'serial', e.target.value)} className={inputClass} />
                   </div>
                 </div>
               ))}
@@ -1152,16 +1151,14 @@ const AddCardsModal = ({ isOpen, onClose, onAddCards, collections }) => {
             <button
               type="button"
               onClick={handleAddAnother}
-              className="w-full py-2 rounded-xl border-2 border-dashed border-slate-600 text-slate-400 font-medium hover:border-orange-500 hover:text-orange-500 transition-colors"
+              className="w-full py-2 rounded-2xl border-2 border-dashed border-slate-600 text-slate-400 font-medium hover:border-orange-500 hover:text-orange-500 transition-colors ios-press"
             >
               + Add Another Card
             </button>
 
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 font-medium">
-                Cancel
-              </button>
-              <button type="submit" className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium">
+              <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl bg-slate-700 text-slate-300 font-medium ios-press">Cancel</button>
+              <button type="submit" className="flex-1 py-3 rounded-2xl bg-orange-500 text-white font-medium ios-press">
                 Save All ({cards.filter(c => c.cardName.trim() || c.parallel.trim()).length})
               </button>
             </div>
@@ -1187,9 +1184,10 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, collectionSortBy,
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center ios-modal-backdrop" onClick={onClose}>
+      <div className="bg-slate-800 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto ios-modal-content" onClick={e => e.stopPropagation()}>
         <div className="p-5">
+          <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
           <h3 className="text-white text-lg font-bold mb-4">Filter & Sort</h3>
           
           <div className="space-y-4">
@@ -1200,8 +1198,8 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, collectionSortBy,
                   <button
                     key={option.value}
                     onClick={() => setCollectionSortBy(option.value)}
-                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                      collectionSortBy === option.value ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'
+                    className={`py-2.5 px-3 rounded-2xl text-sm font-medium transition-all ios-press ${
+                      collectionSortBy === option.value ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-slate-700 text-slate-300'
                     }`}
                   >
                     {option.label}
@@ -1217,8 +1215,8 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, collectionSortBy,
                   <button
                     key={option}
                     onClick={() => setSortBy(option)}
-                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                      sortBy === option ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'
+                    className={`py-2.5 px-3 rounded-2xl text-sm font-medium transition-all ios-press ${
+                      sortBy === option ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-slate-700 text-slate-300'
                     }`}
                   >
                     {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -1234,8 +1232,8 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, collectionSortBy,
                   <button
                     key={option}
                     onClick={() => setFilterCollected(option)}
-                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                      filterCollected === option ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'
+                    className={`py-2.5 px-3 rounded-2xl text-sm font-medium transition-all ios-press ${
+                      filterCollected === option ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-slate-700 text-slate-300'
                     }`}
                   >
                     {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -1245,10 +1243,7 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, collectionSortBy,
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-full mt-4 py-3 rounded-xl bg-slate-700 text-white font-medium"
-          >
+          <button onClick={onClose} className="w-full mt-4 py-3 rounded-2xl bg-slate-700 text-white font-medium ios-press">
             Done
           </button>
         </div>
@@ -1277,6 +1272,7 @@ export default function App() {
   const [showFilterSort, setShowFilterSort] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showHiddenCards, setShowHiddenCards] = useState(false);
+  const [duplicatingCollection, setDuplicatingCollection] = useState(null);
 
   const defaultCards = useMemo(() => flattenCardData(cardData), []);
 
@@ -1397,6 +1393,24 @@ export default function App() {
     saveToFirebase(updated, customOrder, newHidden);
   };
 
+  // CHANGE #1: Duplicate entire collection with new name
+  const handleDuplicateCollection = (originalName, newName) => {
+    const originalCards = cards.filter(c => c.setName === originalName);
+    const duplicatedCards = originalCards.map(card => ({
+      ...card,
+      id: generateId(),
+      setName: newName,
+      collected: false,
+      purchasePrice: null,
+      purchaseDate: null,
+      currentValue: null
+    }));
+    const updated = [...cards, ...duplicatedCards];
+    setCards(updated);
+    saveToFirebase(updated);
+    setDuplicatingCollection(null);
+  };
+
   const handleAddCollection = (name, type) => {
     const newCard = { 
       id: generateId(), 
@@ -1439,11 +1453,7 @@ export default function App() {
 
   const handleMoveCard = (card, direction) => {
     const setName = card.setName;
-    
-    // Get cards in this set
     const cardsInSet = cards.filter(c => c.setName === setName);
-    
-    // If we already have a custom order, use it to sort; otherwise use current order
     let orderedSetCards = [...cardsInSet];
     if (customOrder[setName]) {
       const order = customOrder[setName];
@@ -1460,23 +1470,18 @@ export default function App() {
     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     if (newIndex < 0 || newIndex >= orderedSetCards.length) return;
     
-    // Swap the cards
     const reordered = [...orderedSetCards];
     [reordered[currentIndex], reordered[newIndex]] = [reordered[newIndex], reordered[currentIndex]];
     
-    // Save new order (just the order, not rebuilding the entire cards array)
     const newOrder = { ...customOrder, [setName]: reordered.map(c => c.id) };
-    
     setCustomOrder(newOrder);
     saveToFirebase(cards, newOrder);
   };
 
-  // Handler to restore hidden cards
   const handleRestoreCards = (cardIds) => {
     const cardsToRestore = hiddenCards.filter(c => cardIds.includes(c.id));
     const remainingHidden = hiddenCards.filter(c => !cardIds.includes(c.id));
     const updated = [...cards, ...cardsToRestore];
-    
     setCards(updated);
     setHiddenCards(remainingHidden);
     saveToFirebase(updated, customOrder, remainingHidden);
@@ -1529,7 +1534,6 @@ export default function App() {
       });
       result = Object.fromEntries(Object.entries(result).filter(([_, cards]) => cards.length > 0));
     }
-    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       Object.keys(result).forEach(setName => {
@@ -1551,7 +1555,6 @@ export default function App() {
         case 'collected': setCards.sort((a, b) => (b.collected ? 1 : 0) - (a.collected ? 1 : 0)); break;
         case 'custom':
         default:
-          // Apply custom order if it exists (for both 'custom' and 'default')
           if (customOrder[setName]) {
             const order = customOrder[setName];
             setCards.sort((a, b) => {
@@ -1565,51 +1568,27 @@ export default function App() {
       result[setName] = setCards;
     });
     
-    // Sort collections
     let sortedEntries = Object.entries(result);
     switch (collectionSortBy) {
-      case 'name-asc':
-        sortedEntries.sort((a, b) => a[0].localeCompare(b[0]));
-        break;
-      case 'name-desc':
-        sortedEntries.sort((a, b) => b[0].localeCompare(a[0]));
-        break;
-      case 'most-collected':
-        sortedEntries.sort((a, b) => {
-          const aCollected = a[1].filter(c => c.collected).length;
-          const bCollected = b[1].filter(c => c.collected).length;
-          return bCollected - aCollected;
-        });
-        break;
-      case 'least-collected':
-        sortedEntries.sort((a, b) => {
-          const aCollected = a[1].filter(c => c.collected).length;
-          const bCollected = b[1].filter(c => c.collected).length;
-          return aCollected - bCollected;
-        });
-        break;
-      case 'most-cards':
-        sortedEntries.sort((a, b) => b[1].length - a[1].length);
-        break;
-      case 'least-cards':
-        sortedEntries.sort((a, b) => a[1].length - b[1].length);
-        break;
-      default:
-        // Keep default order
-        break;
+      case 'name-asc': sortedEntries.sort((a, b) => a[0].localeCompare(b[0])); break;
+      case 'name-desc': sortedEntries.sort((a, b) => b[0].localeCompare(a[0])); break;
+      case 'most-collected': sortedEntries.sort((a, b) => b[1].filter(c => c.collected).length - a[1].filter(c => c.collected).length); break;
+      case 'least-collected': sortedEntries.sort((a, b) => a[1].filter(c => c.collected).length - b[1].filter(c => c.collected).length); break;
+      case 'most-cards': sortedEntries.sort((a, b) => b[1].length - a[1].length); break;
+      case 'least-cards': sortedEntries.sort((a, b) => a[1].length - b[1].length); break;
+      default: break;
     }
     
     return Object.fromEntries(sortedEntries);
   }, [collections, collectionTypes, activeCollection, filterCollected, searchQuery, sortBy, collectionSortBy, customOrder]);
 
   const overallPercentage = stats.totalCards > 0 ? Math.round((stats.totalCollected / stats.totalCards) * 100) : 0;
-  
-  // Get collected cards for investment tracking
   const collectedCards = useMemo(() => cards.filter(c => c.collected), [cards]);
 
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <IOSStyles />
         <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -1619,17 +1598,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 pb-24">
-      <div className="bg-gradient-to-b from-orange-500/20 to-transparent px-4 pt-4 pb-2">
+      <IOSStyles />
+      
+      {/* Header */}
+      <div className="bg-gradient-to-b from-orange-500/15 to-transparent px-4 pt-4 pb-2">
         <div className="flex items-center justify-between mb-4">
           <span className="text-white text-lg font-black tracking-tight">MyCardVault</span>
           <div className="flex items-center gap-2">
             {syncing && <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />}
             {saveError && <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
-            {/* Hidden Cards Recovery Button */}
             {hiddenCards.length > 0 && (
               <button
                 onClick={() => setShowHiddenCards(true)}
-                className="relative w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center hover:bg-orange-500/30 transition-colors"
+                className="relative w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center ios-press"
               >
                 <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1639,13 +1620,14 @@ export default function App() {
                 </span>
               </button>
             )}
-            <button onClick={handleLogout} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
+            <button onClick={handleLogout} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center ios-press">
               <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             </button>
           </div>
         </div>
 
-        <div className="bg-slate-800/80 backdrop-blur rounded-2xl p-4 mb-3">
+        {/* Overall Progress */}
+        <div className="bg-slate-800/60 ios-blur rounded-2xl p-4 mb-3">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-white font-bold text-lg">Devin Booker</h2>
@@ -1658,18 +1640,18 @@ export default function App() {
           </div>
           
           <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden mb-4">
-            <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500" style={{ width: `${overallPercentage}%` }} />
+            <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-700 ease-out" style={{ width: `${overallPercentage}%` }} />
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <button onClick={() => setActiveCollection('all')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === 'all' ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 hide-scrollbar">
+            <button onClick={() => setActiveCollection('all')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ios-press ${activeCollection === 'all' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-slate-700 text-slate-300'}`}>
               All ({overallPercentage}%)
             </button>
             {Object.entries(COLLECTION_COLORS).map(([type, config]) => {
               const typeStats = stats.byType[type] || { collected: 0, total: 0 };
               const pct = typeStats.total > 0 ? Math.round((typeStats.collected / typeStats.total) * 100) : 0;
               return (
-                <button key={type} onClick={() => setActiveCollection(type)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === type ? `${config.bg} text-white` : 'bg-slate-700 text-slate-300'}`}>
+                <button key={type} onClick={() => setActiveCollection(type)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ios-press ${activeCollection === type ? `${config.bg} text-white shadow-lg` : 'bg-slate-700 text-slate-300'}`}>
                   {config.label} ({pct}%)
                 </button>
               );
@@ -1677,17 +1659,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* Portfolio Value Card */}
+        {/* Portfolio Value */}
         <PortfolioValueCard cards={collectedCards} />
       </div>
 
-      {/* Top Performers */}
-      <TopPerformers cards={collectedCards} />
-
-      {/* Search Bar */}
+      {/* CHANGE #5: Search bar moved below Portfolio Value, above Top Performers */}
       <div className="px-4 pt-3">
         <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -1695,12 +1674,12 @@ export default function App() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search cards..."
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
+            className="w-full bg-slate-800/60 ios-blur border border-slate-700/50 rounded-2xl pl-11 pr-10 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/50 transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center hover:bg-slate-500"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center hover:bg-slate-500 ios-press"
             >
               <svg className="w-3 h-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1710,22 +1689,27 @@ export default function App() {
         </div>
       </div>
 
-      <div className="px-4 py-3 flex items-center gap-2">
-        <button onClick={() => setShowAddCollection(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">
+      {/* Top Performers (colors removed) */}
+      <TopPerformers cards={collectedCards} />
+
+      {/* Action Buttons */}
+      <div className="px-4 py-2 flex items-center gap-2">
+        <button onClick={() => setShowAddCollection(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-800/60 text-slate-300 text-sm font-medium ios-press">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           Collection
         </button>
-        <button onClick={() => setShowAddCards(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">
+        <button onClick={() => setShowAddCards(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-800/60 text-slate-300 text-sm font-medium ios-press">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           Cards
         </button>
         <div className="flex-1" />
-        <button onClick={() => setShowFilterSort(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium hover:bg-slate-700">
+        <button onClick={() => setShowFilterSort(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-800/60 text-slate-300 text-sm font-medium ios-press">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
           Filter
         </button>
       </div>
 
+      {/* Collections */}
       <div className="px-4">
         {Object.entries(filteredCollections).map(([setName, setCards]) => (
           <CollectionSection
@@ -1739,29 +1723,32 @@ export default function App() {
             onToggleCollected={handleToggleCollected}
             onEditCollection={handleEditCollection}
             onDeleteCollection={handleDeleteCollection}
+            onDuplicateCollection={(name) => setDuplicatingCollection(name)}
             onMoveCard={handleMoveCard}
           />
         ))}
         {Object.keys(filteredCollections).length === 0 && (
           <div className="text-center py-12">
             <p className="text-slate-500">No collections found</p>
-            <button onClick={() => setShowAddCollection(true)} className="mt-4 px-4 py-2 rounded-xl bg-orange-500 text-white font-medium">
+            <button onClick={() => setShowAddCollection(true)} className="mt-4 px-4 py-2 rounded-2xl bg-orange-500 text-white font-medium ios-press">
               Add Your First Collection
             </button>
           </div>
         )}
       </div>
 
+      {/* All Modals */}
       <EditCardModal isOpen={!!editingCard} onClose={() => setEditingCard(null)} card={editingCard} onSave={handleSaveCard} />
       <EditCollectionModal isOpen={!!editingCollection} onClose={() => setEditingCollection(null)} collectionName={editingCollection} onSave={handleSaveCollection} />
       <AddCollectionModal isOpen={showAddCollection} onClose={() => setShowAddCollection(false)} onAddCollection={handleAddCollection} />
       <AddCardsModal isOpen={showAddCards} onClose={() => setShowAddCards(false)} onAddCards={handleAddCards} collections={Object.keys(collections)} />
       <FilterSortModal isOpen={showFilterSort} onClose={() => setShowFilterSort(false)} sortBy={sortBy} setSortBy={setSortBy} collectionSortBy={collectionSortBy} setCollectionSortBy={setCollectionSortBy} filterCollected={filterCollected} setFilterCollected={setFilterCollected} />
-      <HiddenCardsModal 
-        isOpen={showHiddenCards} 
-        onClose={() => setShowHiddenCards(false)} 
-        hiddenCards={hiddenCards}
-        onRestore={handleRestoreCards}
+      <HiddenCardsModal isOpen={showHiddenCards} onClose={() => setShowHiddenCards(false)} hiddenCards={hiddenCards} onRestore={handleRestoreCards} />
+      <DuplicateCollectionModal 
+        isOpen={!!duplicatingCollection} 
+        onClose={() => setDuplicatingCollection(null)} 
+        collectionName={duplicatingCollection} 
+        onDuplicate={handleDuplicateCollection} 
       />
     </div>
   );
