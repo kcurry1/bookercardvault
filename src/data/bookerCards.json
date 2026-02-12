@@ -1774,6 +1774,46 @@
           "parallel": "Pulsar Refractor",
           "serial": "",
           "source": "Sapphire exclusive"
+        },
+        {
+          "id": "card-259",
+          "setName": "Clutch Gene",
+          "cardNumber": "CG-11",
+          "parallel": "Geometric Gold Refractor",
+          "serial": "/50",
+          "source": "Breaker exclusive"
+        },
+        {
+          "id": "card-260",
+          "setName": "Clutch Gene",
+          "cardNumber": "CG-11",
+          "parallel": "Geometric Orange Refractor",
+          "serial": "/25",
+          "source": "Breaker exclusive"
+        },
+        {
+          "id": "card-261",
+          "setName": "Clutch Gene",
+          "cardNumber": "CG-11",
+          "parallel": "Geometric Black Refractor",
+          "serial": "/10",
+          "source": "Breaker exclusive"
+        },
+        {
+          "id": "card-262",
+          "setName": "Clutch Gene",
+          "cardNumber": "CG-11",
+          "parallel": "Geometric Red Refractor",
+          "serial": "/5",
+          "source": "Breaker exclusive"
+        },
+        {
+          "id": "card-263",
+          "setName": "Clutch Gene",
+          "cardNumber": "CG-11",
+          "parallel": "Geometric White Refractor",
+          "serial": "1/1",
+          "source": "Breaker exclusive"
         }
       ]
     },
@@ -2044,6 +2084,46 @@
           "parallel": "Pulsar Refractor",
           "serial": "",
           "source": "Sapphire exclusive"
+        },
+        {
+          "id": "card-264",
+          "setName": "Sleek Finishers",
+          "cardNumber": "SF-19",
+          "parallel": "Geometric Gold Refractor",
+          "serial": "/50",
+          "source": "Breaker exclusive"
+        },
+        {
+          "id": "card-265",
+          "setName": "Sleek Finishers",
+          "cardNumber": "SF-19",
+          "parallel": "Geometric Orange Refractor",
+          "serial": "/25",
+          "source": "Breaker exclusive"
+        },
+        {
+          "id": "card-266",
+          "setName": "Sleek Finishers",
+          "cardNumber": "SF-19",
+          "parallel": "Geometric Black Refractor",
+          "serial": "/10",
+          "source": "Breaker exclusive"
+        },
+        {
+          "id": "card-267",
+          "setName": "Sleek Finishers",
+          "cardNumber": "SF-19",
+          "parallel": "Geometric Red Refractor",
+          "serial": "/5",
+          "source": "Breaker exclusive"
+        },
+        {
+          "id": "card-268",
+          "setName": "Sleek Finishers",
+          "cardNumber": "SF-19",
+          "parallel": "Geometric White Refractor",
+          "serial": "1/1",
+          "source": "Breaker exclusive"
         }
       ]
     },
@@ -2230,6 +2310,473 @@
           "cardNumber": "DCO-DB",
           "parallel": "Base",
           "serial": "",
+          "source": ""
+        }
+      ]
+    },
+    "sapphire-base-card": {
+      "name": "Sapphire - Base Card",
+      "cardNumber": "195",
+      "category": "sapphire",
+      "cards": [
+        {
+          "id": "card-269",
+          "setName": "Base Card",
+          "cardNumber": "195",
+          "parallel": "Base Sapphire",
+          "serial": "",
+          "source": ""
+        },
+        {
+          "id": "card-270",
+          "setName": "Base Card",
+          "cardNumber": "195",
+          "parallel": "Purple Sapphire",
+          "serial": "/75",
+          "source": ""
+        },
+        {
+          "id": "card-271",
+          "setName": "Base Card",
+          "cardNumber": "195",
+          "parallel": "Gold Sapphire",
+          "serial": "/50",
+          "source": ""
+        },
+        {
+          "id": "card-272",
+          "setName": "Base Card",
+          "cardNumber": "195",
+          "parallel": "Orange Sapphire",
+          "serial": "/25",
+          "source": ""
+        },
+        {
+          "id": "card-273",
+          "setName": "Base Card",
+          "cardNumber": "195",
+          "parallel": "Black Sapphire",
+          "serial": "/10",
+          "source": ""
+        },
+        {
+          "id": "card-274",
+          "setName": "Base Card",
+          "cardNumber": "195",
+          "parallel": "Red Sapphire",
+          "serial": "/5",
+          "source": ""
+        },
+        {
+          "id": "card-275",
+          "setName": "Base Card",
+          "cardNumber": "195",
+          "parallel": "Padparadscha Sapphire",
+          "serial": "1/1",
+          "source": ""
+        }
+      ]
+    },
+    "sapphire-signature-style": {
+      "name": "Sapphire - Signature Style",
+      "cardNumber": "SS-DB",
+      "category": "sapphire",
+      "cards": [
+        {
+          "id": "card-276",
+          "setName": "Signature Style",
+          "cardNumber": "SS-DB",
+          "parallel": "Base",
+          "serial": "",
+          "source": "Autograph"
+        },
+        {
+          "id": "card-277",
+          "setName": "Signature Style",
+          "cardNumber": "SS-DB",
+          "parallel": "Gold Sapphire",
+          "serial": "/50",
+          "source": "Autograph"
+        },
+        {
+          "id": "card-278",
+          "setName": "Signature Style",
+          "cardNumber": "SS-DB",
+          "parallel": "Orange Sapphire",
+          "serial": "/25",
+          "source": "Autograph"
+        },
+        {
+          "id": "card-279",
+          "setName": "Signature Style",
+          "cardNumber": "SS-DB",
+          "parallel": "Red Sapphire",
+          "serial": "/5",
+          "source": "Autograph"
+        },
+        {
+          "id": "card-280",
+          "setName": "Signature Style",
+          "cardNumber": "SS-DB",
+          "parallel": "Padparadscha Sapphire",
+          "serial": "1/1",
+          "source": "Autograph"
+        }
+      ]
+    },
+    "midnight-base-card": {
+      "name": "Midnight - Base Card",
+      "cardNumber": "36",
+      "category": "midnight",
+      "cards": [
+        {
+          "id": "card-281",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Base",
+          "serial": "",
+          "source": ""
+        },
+        {
+          "id": "card-282",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Zodiac",
+          "serial": "",
+          "source": ""
+        },
+        {
+          "id": "card-283",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Morning",
+          "serial": "/149",
+          "source": ""
+        },
+        {
+          "id": "card-284",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Twilight",
+          "serial": "/99",
+          "source": ""
+        },
+        {
+          "id": "card-285",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Dusk",
+          "serial": "/75",
+          "source": ""
+        },
+        {
+          "id": "card-286",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Summer Solstice",
+          "serial": "/50",
+          "source": ""
+        },
+        {
+          "id": "card-287",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Winter Solstice",
+          "serial": "/35",
+          "source": ""
+        },
+        {
+          "id": "card-288",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Moon Beam",
+          "serial": "",
+          "source": ""
+        },
+        {
+          "id": "card-289",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Moonrise",
+          "serial": "/25",
+          "source": ""
+        },
+        {
+          "id": "card-290",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Equinox",
+          "serial": "/20",
+          "source": ""
+        },
+        {
+          "id": "card-291",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Midnight",
+          "serial": "/12",
+          "source": ""
+        },
+        {
+          "id": "card-292",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Daybreak",
+          "serial": "/5",
+          "source": ""
+        },
+        {
+          "id": "card-293",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Witching Hour",
+          "serial": "/3",
+          "source": ""
+        },
+        {
+          "id": "card-294",
+          "setName": "Base Card",
+          "cardNumber": "36",
+          "parallel": "Black Light",
+          "serial": "1/1",
+          "source": ""
+        }
+      ]
+    },
+    "midnight-insomnia": {
+      "name": "Midnight - Insomnia",
+      "cardNumber": "IN-2",
+      "category": "midnight",
+      "cards": [
+        {
+          "id": "card-295",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Base",
+          "serial": "",
+          "source": ""
+        },
+        {
+          "id": "card-296",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Morning",
+          "serial": "/149",
+          "source": ""
+        },
+        {
+          "id": "card-297",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Twilight",
+          "serial": "/99",
+          "source": ""
+        },
+        {
+          "id": "card-298",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Dusk",
+          "serial": "/75",
+          "source": ""
+        },
+        {
+          "id": "card-299",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Summer Solstice",
+          "serial": "/50",
+          "source": ""
+        },
+        {
+          "id": "card-300",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Winter Solstice",
+          "serial": "/35",
+          "source": ""
+        },
+        {
+          "id": "card-301",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Moon Beam",
+          "serial": "",
+          "source": ""
+        },
+        {
+          "id": "card-302",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Moonrise",
+          "serial": "/25",
+          "source": ""
+        },
+        {
+          "id": "card-303",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Equinox",
+          "serial": "/20",
+          "source": ""
+        },
+        {
+          "id": "card-304",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Midnight",
+          "serial": "/12",
+          "source": ""
+        },
+        {
+          "id": "card-305",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Daybreak",
+          "serial": "/5",
+          "source": ""
+        },
+        {
+          "id": "card-306",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Witching Hour",
+          "serial": "/3",
+          "source": ""
+        },
+        {
+          "id": "card-307",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Black Light",
+          "serial": "1/1",
+          "source": ""
+        },
+        {
+          "id": "card-308",
+          "setName": "Insomnia",
+          "cardNumber": "IN-2",
+          "parallel": "Night Shade Black Light",
+          "serial": "1/1",
+          "source": ""
+        }
+      ]
+    },
+    "midnight-daydreamers": {
+      "name": "Midnight - Daydreamers",
+      "cardNumber": "DD-6",
+      "category": "midnight",
+      "cards": [
+        {
+          "id": "card-309",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Base",
+          "serial": "",
+          "source": ""
+        },
+        {
+          "id": "card-310",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Morning",
+          "serial": "/149",
+          "source": ""
+        },
+        {
+          "id": "card-311",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Twilight",
+          "serial": "/99",
+          "source": ""
+        },
+        {
+          "id": "card-312",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Dusk",
+          "serial": "/75",
+          "source": ""
+        },
+        {
+          "id": "card-313",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Summer Solstice",
+          "serial": "/50",
+          "source": ""
+        },
+        {
+          "id": "card-314",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Winter Solstice",
+          "serial": "/35",
+          "source": ""
+        },
+        {
+          "id": "card-315",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Moon Beam",
+          "serial": "",
+          "source": ""
+        },
+        {
+          "id": "card-316",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Moonrise",
+          "serial": "/25",
+          "source": ""
+        },
+        {
+          "id": "card-317",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Equinox",
+          "serial": "/20",
+          "source": ""
+        },
+        {
+          "id": "card-318",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Midnight",
+          "serial": "/12",
+          "source": ""
+        },
+        {
+          "id": "card-319",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Daybreak",
+          "serial": "/5",
+          "source": ""
+        },
+        {
+          "id": "card-320",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Witching Hour",
+          "serial": "/3",
+          "source": ""
+        },
+        {
+          "id": "card-321",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Black Light",
+          "serial": "1/1",
+          "source": ""
+        },
+        {
+          "id": "card-322",
+          "setName": "Daydreamers",
+          "cardNumber": "DD-6",
+          "parallel": "Night Shade Black Light",
+          "serial": "1/1",
           "source": ""
         }
       ]

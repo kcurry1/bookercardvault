@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
@@ -153,8 +153,29 @@ const IOSStyles = () => (
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
     .collection-cards-enter { animation: fadeIn 0.2s ease-out, slideDown 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
-    
+
     .menu-dropdown { animation: scaleIn 0.15s cubic-bezier(0.32, 0.72, 0, 1); transform-origin: top right; }
+
+    .drag-item-active {
+      z-index: 100;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(249,115,22,0.3);
+      transform: scale(1.03);
+      opacity: 0.95;
+    }
+    .drag-placeholder {
+      background: rgba(249,115,22,0.08);
+      border: 2px dashed rgba(249,115,22,0.3);
+      border-radius: 1rem;
+      transition: height 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .drag-handle {
+      touch-action: none;
+      cursor: grab;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    .drag-transition {
+      transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    }
   `}</style>
 );
 
@@ -503,6 +524,179 @@ const TopPerformers = ({ cards }) => {
   );
 };
 
+// ===== DRAG AND DROP HOOK =====
+const useLongPressDrag = ({ items, onReorder, enabled = true }) => {
+  const containerRef = useRef(null);
+  const dragState = useRef({
+    active: false,
+    itemIndex: -1,
+    startY: 0,
+    currentY: 0,
+    longPressTimer: null,
+    itemHeights: [],
+    dragOffset: 0,
+    moved: false,
+    cloneEl: null,
+    placeholderIndex: -1
+  });
+  const [dragIndex, setDragIndex] = useState(-1);
+  const [placeholderIndex, setPlaceholderIndex] = useState(-1);
+
+  const cleanup = useCallback(() => {
+    const ds = dragState.current;
+    if (ds.longPressTimer) clearTimeout(ds.longPressTimer);
+    if (ds.cloneEl && ds.cloneEl.parentNode) ds.cloneEl.parentNode.removeChild(ds.cloneEl);
+    ds.active = false;
+    ds.itemIndex = -1;
+    ds.cloneEl = null;
+    ds.moved = false;
+    setDragIndex(-1);
+    setPlaceholderIndex(-1);
+  }, []);
+
+  const getItemElements = useCallback(() => {
+    if (!containerRef.current) return [];
+    return Array.from(containerRef.current.children).filter(el => el.dataset.dragIndex !== undefined);
+  }, []);
+
+  const handleStart = useCallback((index, e) => {
+    if (!enabled || items.length <= 1) return;
+    e.preventDefault();
+    const ds = dragState.current;
+    const touch = e.touches ? e.touches[0] : e;
+    ds.startY = touch.clientY;
+    ds.currentY = touch.clientY;
+    ds.itemIndex = index;
+    ds.moved = false;
+
+    ds.longPressTimer = setTimeout(() => {
+      const itemEls = getItemElements();
+      if (!itemEls[index]) return;
+
+      ds.itemHeights = itemEls.map(el => el.getBoundingClientRect().height + parseFloat(getComputedStyle(el).marginBottom || 0));
+      const rect = itemEls[index].getBoundingClientRect();
+      ds.dragOffset = ds.startY - rect.top;
+
+      // Create floating clone
+      const clone = itemEls[index].cloneNode(true);
+      clone.style.position = 'fixed';
+      clone.style.left = rect.left + 'px';
+      clone.style.width = rect.width + 'px';
+      clone.style.top = rect.top + 'px';
+      clone.style.pointerEvents = 'none';
+      clone.style.zIndex = '9999';
+      clone.style.transition = 'transform 0.05s ease-out, box-shadow 0.2s ease';
+      clone.style.boxShadow = '0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(249,115,22,0.3)';
+      clone.style.transform = 'scale(1.03)';
+      clone.style.opacity = '0.95';
+      clone.style.borderRadius = '1rem';
+      document.body.appendChild(clone);
+      ds.cloneEl = clone;
+
+      ds.active = true;
+      ds.placeholderIndex = index;
+      setDragIndex(index);
+      setPlaceholderIndex(index);
+
+      // Haptic feedback on supported devices
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 300);
+  }, [enabled, items.length, getItemElements]);
+
+  const handleMove = useCallback((e) => {
+    const ds = dragState.current;
+    if (!ds.active && ds.longPressTimer) {
+      const touch = e.touches ? e.touches[0] : e;
+      if (Math.abs(touch.clientY - ds.startY) > 8) {
+        clearTimeout(ds.longPressTimer);
+        ds.longPressTimer = null;
+        return;
+      }
+    }
+    if (!ds.active) return;
+    e.preventDefault();
+    const touch = e.touches ? e.touches[0] : e;
+    ds.currentY = touch.clientY;
+    ds.moved = true;
+
+    // Move clone
+    if (ds.cloneEl) {
+      ds.cloneEl.style.top = (ds.currentY - ds.dragOffset) + 'px';
+    }
+
+    // Calculate new placeholder position
+    let accumulatedHeight = 0;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const relativeY = ds.currentY - containerRect.top + containerRef.current.scrollTop;
+
+    let newPlaceholderIndex = items.length - 1;
+    for (let i = 0; i < ds.itemHeights.length; i++) {
+      accumulatedHeight += ds.itemHeights[i];
+      if (relativeY < accumulatedHeight - ds.itemHeights[i] / 2) {
+        newPlaceholderIndex = i;
+        break;
+      }
+    }
+
+    if (newPlaceholderIndex !== ds.placeholderIndex) {
+      ds.placeholderIndex = newPlaceholderIndex;
+      setPlaceholderIndex(newPlaceholderIndex);
+    }
+  }, [items.length, getItemElements]);
+
+  const handleEnd = useCallback(() => {
+    const ds = dragState.current;
+    if (ds.longPressTimer) {
+      clearTimeout(ds.longPressTimer);
+      ds.longPressTimer = null;
+    }
+
+    if (ds.active && ds.moved && ds.placeholderIndex !== ds.itemIndex) {
+      const newItems = [...items];
+      const [moved] = newItems.splice(ds.itemIndex, 1);
+      newItems.splice(ds.placeholderIndex, 0, moved);
+      onReorder(newItems);
+    }
+    cleanup();
+  }, [items, onReorder, cleanup]);
+
+  useEffect(() => {
+    const onTouchMove = (e) => handleMove(e);
+    const onTouchEnd = () => handleEnd();
+    const onMouseMove = (e) => handleMove(e);
+    const onMouseUp = () => handleEnd();
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchcancel', onTouchEnd);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', onTouchEnd);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      cleanup();
+    };
+  }, [handleMove, handleEnd, cleanup]);
+
+  const getDragHandleProps = useCallback((index) => ({
+    onTouchStart: (e) => handleStart(index, e),
+    onMouseDown: (e) => handleStart(index, e),
+    className: 'drag-handle',
+  }), [handleStart]);
+
+  return {
+    containerRef,
+    getDragHandleProps,
+    dragIndex,
+    placeholderIndex,
+    isDragging: dragIndex >= 0,
+  };
+};
+
 // ===== THREE DOT MENU (CHANGE #2: reusable wrapper) =====
 const ThreeDotMenu = ({ children, className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -564,22 +758,20 @@ const MenuItem = ({ icon, label, onClick, danger = false, onAfterClick }) => (
 );
 
 // ===== CARD ITEM =====
-const CardItem = ({ 
-  card, 
-  onToggleCollected, 
-  onEdit, 
-  onDuplicate, 
+const CardItem = ({
+  card,
+  onToggleCollected,
+  onEdit,
+  onDuplicate,
   onDelete,
-  onMoveUp,
-  onMoveDown,
-  canMoveUp,
-  canMoveDown,
-  collectionColor 
+  collectionColor,
+  dragHandleProps,
+  isDragTarget,
 }) => {
   const gain = calculateGain(card.purchasePrice, card.currentValue);
   const gainPercent = calculateGainPercent(card.purchasePrice, card.currentValue);
   const hasInvestmentData = card.purchasePrice && card.currentValue;
-  
+
   let indicatorColor = 'bg-slate-600';
   if (card.collected && hasInvestmentData) {
     indicatorColor = gain >= 0 ? 'bg-green-500' : 'bg-red-500';
@@ -588,7 +780,16 @@ const CardItem = ({
   }
 
   return (
-    <div className="bg-slate-800/60 rounded-2xl p-3 flex items-center gap-3 mb-2 ios-card">
+    <div className={`bg-slate-800/60 rounded-2xl p-3 flex items-center gap-3 mb-2 ios-card ${isDragTarget ? 'opacity-0' : ''}`}>
+      {/* Drag handle */}
+      <div {...dragHandleProps} style={{ touchAction: 'none' }}>
+        <svg className="w-4 h-4 text-slate-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+          <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+          <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+        </svg>
+      </div>
+
       {/* Color indicator */}
       <div className={`w-1 h-10 rounded-full ${indicatorColor} transition-colors duration-300`} />
 
@@ -628,8 +829,6 @@ const CardItem = ({
 
       {/* Three dot menu */}
       <ThreeDotMenu>
-        {canMoveUp && <MenuItem icon="M5 15l7-7 7 7" label="Move Up" onClick={() => onMoveUp(card)} />}
-        {canMoveDown && <MenuItem icon="M19 9l-7 7-7-7" label="Move Down" onClick={() => onMoveDown(card)} />}
         <MenuItem icon="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" label="Edit" onClick={() => onEdit(card)} />
         <MenuItem icon="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" label="Duplicate" onClick={() => onDuplicate(card)} />
         <MenuItem icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" label="Delete" onClick={() => onDelete(card.id)} danger />
@@ -639,25 +838,33 @@ const CardItem = ({
 };
 
 // ===== COLLECTION SECTION (CHANGE #2: ⋮ menu replaces pencil+trash) =====
-const CollectionSection = ({ 
-  setName, 
-  cards, 
+const CollectionSection = ({
+  setName,
+  cards,
   collectionType,
-  onDeleteCard, 
-  onEditCard, 
-  onDuplicateCard, 
+  onDeleteCard,
+  onEditCard,
+  onDuplicateCard,
   onToggleCollected,
   onEditCollection,
   onDeleteCollection,
   onDuplicateCollection,
-  onMoveCard
+  onReorderCards,
+  dragHandleProps: collectionDragProps,
+  isDragTarget: isCollectionDragTarget,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const colors = COLLECTION_COLORS[collectionType] || COLLECTION_COLORS.flagship;
   const collected = cards.filter(c => c.collected).length;
   const total = cards.length;
   const percentage = total > 0 ? Math.round((collected / total) * 100) : 0;
-  
+
+  const { containerRef, getDragHandleProps, dragIndex, placeholderIndex, isDragging } = useLongPressDrag({
+    items: cards,
+    onReorder: (reordered) => onReorderCards(setName, reordered),
+    enabled: isExpanded,
+  });
+
   const collectionGain = useMemo(() => {
     let totalGain = 0;
     cards.forEach(card => {
@@ -669,12 +876,21 @@ const CollectionSection = ({
   }, [cards]);
 
   return (
-    <div className="mb-3">
+    <div className={`mb-3 ${isCollectionDragTarget ? 'opacity-0' : ''}`}>
       {/* Collection Header */}
-      <div 
+      <div
         className="bg-slate-800/60 ios-blur rounded-2xl p-3.5 flex items-center gap-3 ios-card cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
+        {/* Collection drag handle */}
+        <div {...collectionDragProps} onClick={(e) => e.stopPropagation()} style={{ touchAction: 'none' }}>
+          <svg className="w-4 h-4 text-slate-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+            <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+            <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+          </svg>
+        </div>
+
         <div className={`w-1.5 h-10 rounded-full ${colors.bg} flex-shrink-0`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -687,7 +903,7 @@ const CollectionSection = ({
           </div>
           <div className="flex items-center gap-2">
             <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-              <div 
+              <div
                 className={`h-full bg-gradient-to-r ${colors.gradient} transition-all duration-700 ease-out`}
                 style={{ width: `${percentage}%` }}
               />
@@ -696,29 +912,29 @@ const CollectionSection = ({
             <span className="text-slate-500 text-xs">({collected}/{total})</span>
           </div>
         </div>
-        
-        {/* Three-dot menu (replaces pencil + trash icons) */}
+
+        {/* Three-dot menu */}
         <ThreeDotMenu>
-          <MenuItem 
-            icon="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" 
-            label="Edit Name" 
-            onClick={() => onEditCollection(setName)} 
+          <MenuItem
+            icon="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+            label="Edit Name"
+            onClick={() => onEditCollection(setName)}
           />
-          <MenuItem 
-            icon="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" 
-            label="Duplicate" 
-            onClick={() => onDuplicateCollection(setName)} 
+          <MenuItem
+            icon="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+            label="Duplicate"
+            onClick={() => onDuplicateCollection(setName)}
           />
-          <MenuItem 
-            icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
-            label="Delete" 
-            onClick={() => onDeleteCollection(setName)} 
-            danger 
+          <MenuItem
+            icon="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            label="Delete"
+            onClick={() => onDeleteCollection(setName)}
+            danger
           />
         </ThreeDotMenu>
 
-        {/* Dropdown arrow - spaced from menu */}
-        <svg 
+        {/* Dropdown arrow */}
+        <svg
           className={`w-5 h-5 text-slate-400 transition-transform duration-300 flex-shrink-0 ml-1 ${isExpanded ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
@@ -728,22 +944,29 @@ const CollectionSection = ({
 
       {/* Expanded Cards */}
       {isExpanded && (
-        <div className="mt-2 ml-4 collection-cards-enter">
+        <div className="mt-2 ml-4 collection-cards-enter" ref={containerRef}>
           {cards.map((card, index) => (
-            <CardItem
-              key={card.id}
-              card={card}
-              onToggleCollected={onToggleCollected}
-              onEdit={onEditCard}
-              onDuplicate={onDuplicateCard}
-              onDelete={onDeleteCard}
-              onMoveUp={(c) => onMoveCard(c, 'up')}
-              onMoveDown={(c) => onMoveCard(c, 'down')}
-              canMoveUp={index > 0}
-              canMoveDown={index < cards.length - 1}
-              collectionColor={colors}
-            />
+            <React.Fragment key={card.id}>
+              {isDragging && placeholderIndex === index && dragIndex !== index && (
+                <div className="drag-placeholder mb-2" style={{ height: 52 }} />
+              )}
+              <div data-drag-index={index}>
+                <CardItem
+                  card={card}
+                  onToggleCollected={onToggleCollected}
+                  onEdit={onEditCard}
+                  onDuplicate={onDuplicateCard}
+                  onDelete={onDeleteCard}
+                  collectionColor={colors}
+                  dragHandleProps={getDragHandleProps(index)}
+                  isDragTarget={dragIndex === index}
+                />
+              </div>
+            </React.Fragment>
           ))}
+          {isDragging && placeholderIndex >= cards.length && (
+            <div className="drag-placeholder mb-2" style={{ height: 52 }} />
+          )}
           {cards.length === 0 && (
             <p className="text-slate-500 text-sm py-4 text-center">No cards in this collection</p>
           )}
@@ -1252,6 +1475,73 @@ const FilterSortModal = ({ isOpen, onClose, sortBy, setSortBy, collectionSortBy,
   );
 };
 
+// ===== COLLECTIONS LIST WITH DRAG =====
+const CollectionsList = ({
+  filteredCollections,
+  collectionTypes,
+  onDeleteCard,
+  onEditCard,
+  onDuplicateCard,
+  onToggleCollected,
+  onEditCollection,
+  onDeleteCollection,
+  onDuplicateCollection,
+  onReorderCards,
+  onReorderCollections,
+  onShowAddCollection,
+}) => {
+  const entries = useMemo(() =>
+    Object.entries(filteredCollections).map(([name, cards]) => ({ name, cards })),
+    [filteredCollections]
+  );
+
+  const { containerRef, getDragHandleProps, dragIndex, placeholderIndex, isDragging } = useLongPressDrag({
+    items: entries,
+    onReorder: onReorderCollections,
+    enabled: entries.length > 1,
+  });
+
+  return (
+    <div className="px-4" ref={containerRef}>
+      {entries.map((entry, index) => (
+        <React.Fragment key={entry.name}>
+          {isDragging && placeholderIndex === index && dragIndex !== index && (
+            <div className="drag-placeholder mb-3" style={{ height: 68 }} />
+          )}
+          <div data-drag-index={index}>
+            <CollectionSection
+              setName={entry.name}
+              cards={entry.cards}
+              collectionType={collectionTypes[entry.name]}
+              onDeleteCard={onDeleteCard}
+              onEditCard={onEditCard}
+              onDuplicateCard={onDuplicateCard}
+              onToggleCollected={onToggleCollected}
+              onEditCollection={onEditCollection}
+              onDeleteCollection={onDeleteCollection}
+              onDuplicateCollection={onDuplicateCollection}
+              onReorderCards={onReorderCards}
+              dragHandleProps={getDragHandleProps(index)}
+              isDragTarget={dragIndex === index}
+            />
+          </div>
+        </React.Fragment>
+      ))}
+      {isDragging && placeholderIndex >= entries.length && (
+        <div className="drag-placeholder mb-3" style={{ height: 68 }} />
+      )}
+      {entries.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-slate-500">No collections found</p>
+          <button onClick={onShowAddCollection} className="mt-4 px-4 py-2 rounded-2xl bg-orange-500 text-white font-medium ios-press">
+            Add Your First Collection
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ===== MAIN APP =====
 export default function App() {
   const [user, setUser] = useState(null);
@@ -1275,11 +1565,14 @@ export default function App() {
   const [duplicatingCollection, setDuplicatingCollection] = useState(null);
 
   const defaultCards = useMemo(() => flattenCardData(cardData), []);
+  const initialLoadDone = useRef(false);
+  const ignoreNextSnapshot = useRef(false);
 
   const saveToFirebase = useCallback(async (newCards, newCustomOrder = customOrder, newHiddenCards = hiddenCards) => {
     if (!user) return;
     setSyncing(true);
     setSaveError(false);
+    ignoreNextSnapshot.current = true;
     try {
       await setDoc(doc(db, 'users', user.uid), {
         cards: newCards,
@@ -1295,8 +1588,16 @@ export default function App() {
     }
   }, [user, customOrder, hiddenCards]);
 
+  const saveToFirebaseRef = useRef(saveToFirebase);
+  useEffect(() => {
+    saveToFirebaseRef.current = saveToFirebase;
+  }, [saveToFirebase]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        initialLoadDone.current = false;
+      }
       setUser(user);
       setAuthLoading(false);
     });
@@ -1307,26 +1608,34 @@ export default function App() {
     if (!user) return;
     const docRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (ignoreNextSnapshot.current) {
+        ignoreNextSnapshot.current = false;
+        return;
+      }
       if (docSnap.exists()) {
         const data = docSnap.data();
         const loadedCards = ensureArray(data.cards);
-        if (loadedCards.length === 0 && defaultCards.length > 0) {
+        if (loadedCards.length === 0 && !initialLoadDone.current && defaultCards.length > 0) {
           setCards(defaultCards);
-          saveToFirebase(defaultCards, {}, []);
-        } else {
+          saveToFirebaseRef.current(defaultCards, {}, []);
+        } else if (loadedCards.length > 0) {
           setCards(loadedCards);
         }
-        setCustomOrder(data.customOrder || {});
+        const loadedCustomOrder = data.customOrder || {};
+        setCustomOrder(loadedCustomOrder);
+        setCollectionOrder(loadedCustomOrder.__collectionOrder || []);
         setHiddenCards(ensureArray(data.hiddenCards));
+        initialLoadDone.current = true;
       } else {
-        if (defaultCards.length > 0) {
+        if (!initialLoadDone.current && defaultCards.length > 0) {
           setCards(defaultCards);
-          saveToFirebase(defaultCards, {}, []);
+          saveToFirebaseRef.current(defaultCards, {}, []);
+          initialLoadDone.current = true;
         }
       }
     });
     return () => unsubscribe();
-  }, [user, defaultCards, saveToFirebase]);
+  }, [user, defaultCards]);
 
   const handleLogin = async () => {
     try {
@@ -1339,6 +1648,9 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      setCards([]);
+      setCustomOrder({});
+      setHiddenCards([]);
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -1451,32 +1763,21 @@ export default function App() {
     saveToFirebase(updated);
   };
 
-  const handleMoveCard = (card, direction) => {
-    const setName = card.setName;
-    const cardsInSet = cards.filter(c => c.setName === setName);
-    let orderedSetCards = [...cardsInSet];
-    if (customOrder[setName]) {
-      const order = customOrder[setName];
-      orderedSetCards.sort((a, b) => {
-        const aIndex = order.indexOf(a.id);
-        const bIndex = order.indexOf(b.id);
-        return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
-      });
-    }
-    
-    const currentIndex = orderedSetCards.findIndex(c => c.id === card.id);
-    if (currentIndex === -1) return;
-    
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= orderedSetCards.length) return;
-    
-    const reordered = [...orderedSetCards];
-    [reordered[currentIndex], reordered[newIndex]] = [reordered[newIndex], reordered[currentIndex]];
-    
-    const newOrder = { ...customOrder, [setName]: reordered.map(c => c.id) };
+  const handleReorderCards = useCallback((setName, reorderedCards) => {
+    const newOrder = { ...customOrder, [setName]: reorderedCards.map(c => c.id) };
     setCustomOrder(newOrder);
     saveToFirebase(cards, newOrder);
-  };
+  }, [customOrder, cards, saveToFirebase]);
+
+  const [collectionOrder, setCollectionOrder] = useState([]);
+
+  const handleReorderCollections = useCallback((reorderedEntries) => {
+    const newOrder = reorderedEntries.map(e => e.name);
+    setCollectionOrder(newOrder);
+    const newCustomOrder = { ...customOrder, __collectionOrder: newOrder };
+    setCustomOrder(newCustomOrder);
+    saveToFirebase(cards, newCustomOrder);
+  }, [customOrder, cards, saveToFirebase]);
 
   const handleRestoreCards = (cardIds) => {
     const cardsToRestore = hiddenCards.filter(c => cardIds.includes(c.id));
@@ -1576,11 +1877,20 @@ export default function App() {
       case 'least-collected': sortedEntries.sort((a, b) => a[1].filter(c => c.collected).length - b[1].filter(c => c.collected).length); break;
       case 'most-cards': sortedEntries.sort((a, b) => b[1].length - a[1].length); break;
       case 'least-cards': sortedEntries.sort((a, b) => a[1].length - b[1].length); break;
-      default: break;
+      default:
+        // Apply custom collection order
+        if (collectionOrder.length > 0) {
+          sortedEntries.sort((a, b) => {
+            const aIdx = collectionOrder.indexOf(a[0]);
+            const bIdx = collectionOrder.indexOf(b[0]);
+            return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+          });
+        }
+        break;
     }
-    
+
     return Object.fromEntries(sortedEntries);
-  }, [collections, collectionTypes, activeCollection, filterCollected, searchQuery, sortBy, collectionSortBy, customOrder]);
+  }, [collections, collectionTypes, activeCollection, filterCollected, searchQuery, sortBy, collectionSortBy, customOrder, collectionOrder]);
 
   const overallPercentage = stats.totalCards > 0 ? Math.round((stats.totalCollected / stats.totalCards) * 100) : 0;
   const collectedCards = useMemo(() => cards.filter(c => c.collected), [cards]);
@@ -1710,32 +2020,20 @@ export default function App() {
       </div>
 
       {/* Collections */}
-      <div className="px-4">
-        {Object.entries(filteredCollections).map(([setName, setCards]) => (
-          <CollectionSection
-            key={setName}
-            setName={setName}
-            cards={setCards}
-            collectionType={collectionTypes[setName]}
-            onDeleteCard={handleDeleteCard}
-            onEditCard={handleEditCard}
-            onDuplicateCard={handleDuplicateCard}
-            onToggleCollected={handleToggleCollected}
-            onEditCollection={handleEditCollection}
-            onDeleteCollection={handleDeleteCollection}
-            onDuplicateCollection={(name) => setDuplicatingCollection(name)}
-            onMoveCard={handleMoveCard}
-          />
-        ))}
-        {Object.keys(filteredCollections).length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-slate-500">No collections found</p>
-            <button onClick={() => setShowAddCollection(true)} className="mt-4 px-4 py-2 rounded-2xl bg-orange-500 text-white font-medium ios-press">
-              Add Your First Collection
-            </button>
-          </div>
-        )}
-      </div>
+      <CollectionsList
+        filteredCollections={filteredCollections}
+        collectionTypes={collectionTypes}
+        onDeleteCard={handleDeleteCard}
+        onEditCard={handleEditCard}
+        onDuplicateCard={handleDuplicateCard}
+        onToggleCollected={handleToggleCollected}
+        onEditCollection={handleEditCollection}
+        onDeleteCollection={handleDeleteCollection}
+        onDuplicateCollection={(name) => setDuplicatingCollection(name)}
+        onReorderCards={handleReorderCards}
+        onReorderCollections={handleReorderCollections}
+        onShowAddCollection={() => setShowAddCollection(true)}
+      />
 
       {/* All Modals */}
       <EditCardModal isOpen={!!editingCard} onClose={() => setEditingCard(null)} card={editingCard} onSave={handleSaveCard} />
