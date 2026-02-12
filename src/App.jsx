@@ -1356,6 +1356,9 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      setCards([]);
+      setCustomOrder({});
+      setHiddenCards([]);
     } catch (error) {
       console.error('Logout error:', error);
     }
