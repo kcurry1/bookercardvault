@@ -1615,16 +1615,27 @@ export default function App() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         const loadedCards = ensureArray(data.cards);
+        const loadedHidden = ensureArray(data.hiddenCards);
         if (loadedCards.length === 0 && !initialLoadDone.current && defaultCards.length > 0) {
           setCards(defaultCards);
           saveToFirebaseRef.current(defaultCards, {}, []);
         } else if (loadedCards.length > 0) {
-          setCards(loadedCards);
+          // Merge any new default cards not yet in user's data
+          const existingIds = new Set(loadedCards.map(c => c.id));
+          const hiddenIds = new Set(loadedHidden.map(c => c.id));
+          const newCards = defaultCards.filter(c => !existingIds.has(c.id) && !hiddenIds.has(c.id));
+          if (newCards.length > 0 && !initialLoadDone.current) {
+            const merged = [...loadedCards, ...newCards];
+            setCards(merged);
+            saveToFirebaseRef.current(merged, data.customOrder || {}, loadedHidden);
+          } else {
+            setCards(loadedCards);
+          }
         }
         const loadedCustomOrder = data.customOrder || {};
         setCustomOrder(loadedCustomOrder);
         setCollectionOrder(loadedCustomOrder.__collectionOrder || []);
-        setHiddenCards(ensureArray(data.hiddenCards));
+        setHiddenCards(loadedHidden);
         initialLoadDone.current = true;
       } else {
         if (!initialLoadDone.current && defaultCards.length > 0) {

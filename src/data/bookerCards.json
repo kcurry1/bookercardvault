@@ -2377,53 +2377,6 @@
         }
       ]
     },
-    "sapphire-signature-style": {
-      "name": "Sapphire - Signature Style",
-      "cardNumber": "SS-DB",
-      "category": "sapphire",
-      "cards": [
-        {
-          "id": "card-276",
-          "setName": "Signature Style",
-          "cardNumber": "SS-DB",
-          "parallel": "Base",
-          "serial": "",
-          "source": "Autograph"
-        },
-        {
-          "id": "card-277",
-          "setName": "Signature Style",
-          "cardNumber": "SS-DB",
-          "parallel": "Gold Sapphire",
-          "serial": "/50",
-          "source": "Autograph"
-        },
-        {
-          "id": "card-278",
-          "setName": "Signature Style",
-          "cardNumber": "SS-DB",
-          "parallel": "Orange Sapphire",
-          "serial": "/25",
-          "source": "Autograph"
-        },
-        {
-          "id": "card-279",
-          "setName": "Signature Style",
-          "cardNumber": "SS-DB",
-          "parallel": "Red Sapphire",
-          "serial": "/5",
-          "source": "Autograph"
-        },
-        {
-          "id": "card-280",
-          "setName": "Signature Style",
-          "cardNumber": "SS-DB",
-          "parallel": "Padparadscha Sapphire",
-          "serial": "1/1",
-          "source": "Autograph"
-        }
-      ]
-    },
     "midnight-base-card": {
       "name": "Midnight - Base Card",
       "cardNumber": "36",
