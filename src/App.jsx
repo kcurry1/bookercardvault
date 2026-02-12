@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
@@ -1275,11 +1275,14 @@ export default function App() {
   const [duplicatingCollection, setDuplicatingCollection] = useState(null);
 
   const defaultCards = useMemo(() => flattenCardData(cardData), []);
+  const initialLoadDone = useRef(false);
+  const ignoreNextSnapshot = useRef(false);
 
   const saveToFirebase = useCallback(async (newCards, newCustomOrder = customOrder, newHiddenCards = hiddenCards) => {
     if (!user) return;
     setSyncing(true);
     setSaveError(false);
+    ignoreNextSnapshot.current = true;
     try {
       await setDoc(doc(db, 'users', user.uid), {
         cards: newCards,
@@ -1295,8 +1298,16 @@ export default function App() {
     }
   }, [user, customOrder, hiddenCards]);
 
+  const saveToFirebaseRef = useRef(saveToFirebase);
+  useEffect(() => {
+    saveToFirebaseRef.current = saveToFirebase;
+  }, [saveToFirebase]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        initialLoadDone.current = false;
+      }
       setUser(user);
       setAuthLoading(false);
     });
@@ -1307,26 +1318,32 @@ export default function App() {
     if (!user) return;
     const docRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (ignoreNextSnapshot.current) {
+        ignoreNextSnapshot.current = false;
+        return;
+      }
       if (docSnap.exists()) {
         const data = docSnap.data();
         const loadedCards = ensureArray(data.cards);
-        if (loadedCards.length === 0 && defaultCards.length > 0) {
+        if (loadedCards.length === 0 && !initialLoadDone.current && defaultCards.length > 0) {
           setCards(defaultCards);
-          saveToFirebase(defaultCards, {}, []);
-        } else {
+          saveToFirebaseRef.current(defaultCards, {}, []);
+        } else if (loadedCards.length > 0) {
           setCards(loadedCards);
         }
         setCustomOrder(data.customOrder || {});
         setHiddenCards(ensureArray(data.hiddenCards));
+        initialLoadDone.current = true;
       } else {
-        if (defaultCards.length > 0) {
+        if (!initialLoadDone.current && defaultCards.length > 0) {
           setCards(defaultCards);
-          saveToFirebase(defaultCards, {}, []);
+          saveToFirebaseRef.current(defaultCards, {}, []);
+          initialLoadDone.current = true;
         }
       }
     });
     return () => unsubscribe();
-  }, [user, defaultCards, saveToFirebase]);
+  }, [user, defaultCards]);
 
   const handleLogin = async () => {
     try {
